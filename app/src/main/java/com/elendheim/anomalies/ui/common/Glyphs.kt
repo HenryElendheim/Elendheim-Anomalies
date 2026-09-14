@@ -21,7 +21,7 @@ import androidx.compose.ui.unit.dp
  * The icon set, drawn as line art in code. Keeping the glyphs here rather than pulling in
  * an icon library means one visual language and nothing extra in the download.
  */
-enum class Glyph { MAP, CODEX, STOP, ITEMS, PROFILE, SETTINGS, PLUS, CLOSE, BACK, TRASH, SPARK, CHECK }
+enum class Glyph { MAP, CODEX, STOP, ITEMS, PROFILE, PLUS, BACK }
 
 fun DrawScope.drawGlyph(glyph: Glyph, color: Color) {
     val width = size.minDimension
@@ -105,37 +105,9 @@ fun DrawScope.drawGlyph(glyph: Glyph, color: Color) {
             )
         }
 
-        Glyph.SETTINGS -> {
-            drawCircle(color, unit * 3.2f, Offset(12 * unit, 12 * unit), style = stroke)
-            // Four spokes rather than a full cog, which stays legible at tab size.
-            line(12f, 2.5f, 12f, 6f); line(12f, 18f, 12f, 21.5f)
-            line(2.5f, 12f, 6f, 12f); line(18f, 12f, 21.5f, 12f)
-        }
-
         Glyph.PLUS -> { line(12f, 5f, 12f, 19f); line(5f, 12f, 19f, 12f) }
 
-        Glyph.CLOSE -> { line(6f, 6f, 18f, 18f); line(18f, 6f, 6f, 18f) }
-
         Glyph.BACK -> { line(14f, 5f, 7f, 12f); line(7f, 12f, 14f, 19f) }
-
-        Glyph.TRASH -> {
-            line(4f, 7f, 20f, 7f)
-            drawPath(
-                Path().apply {
-                    moveTo(6.5f * unit, 7 * unit); lineTo(7.5f * unit, 20.5f * unit)
-                    lineTo(16.5f * unit, 20.5f * unit); lineTo(17.5f * unit, 7 * unit)
-                },
-                color, style = stroke,
-            )
-            line(9.5f, 4f, 14.5f, 4f)
-        }
-
-        Glyph.SPARK -> {
-            line(12f, 3f, 12f, 21f); line(3f, 12f, 21f, 12f)
-            line(6f, 6f, 18f, 18f); line(18f, 6f, 6f, 18f)
-        }
-
-        Glyph.CHECK -> { line(5f, 12.5f, 10f, 18f); line(10f, 18f, 19f, 6f) }
     }
 }
 

@@ -41,7 +41,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -79,6 +81,14 @@ fun CatchScreen(viewModel: GameViewModel, session: CatchSession) {
     val colors = theme
 
     BackHandler { viewModel.abandonCatch() }
+
+    // A short buzz the moment a throw lands, when the setting allows it.
+    val haptics = LocalHapticFeedback.current
+    LaunchedEffect(session.phase) {
+        if (session.phase == CatchPhase.CAUGHT && state.settings.hapticsEnabled) {
+            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+        }
+    }
 
     // The shrinking ring. With reduce motion on it holds still at a fair size, which
     // takes the timing out of the throw rather than making it impossible to read.

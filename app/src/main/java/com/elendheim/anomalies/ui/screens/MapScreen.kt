@@ -51,6 +51,7 @@ import com.elendheim.anomalies.ui.common.PrimaryButton
 import com.elendheim.anomalies.ui.common.Sizes
 import com.elendheim.anomalies.ui.game.GameViewModel
 import com.elendheim.anomalies.ui.theme.theme
+import kotlinx.coroutines.delay
 import kotlin.math.hypot
 import kotlin.math.roundToInt
 
@@ -81,11 +82,12 @@ fun MapScreen(viewModel: GameViewModel) {
     }
 
     LaunchedEffect(Unit) {
-        if (!state.hasLocationPermission) {
-            permissionLauncher.launch(
-                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
-            )
-        }
+        // Waiting out the splash means the system permission dialog never lands on top
+        // of the opening word.
+        delay(PERMISSION_PROMPT_DELAY_MILLIS)
+        permissionLauncher.launch(
+            arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
+        )
     }
 
     val fix = state.fix
@@ -402,3 +404,4 @@ private const val TAP_SLOP_PX = 70f
 private const val PLAYER_RADIUS_PX = 13f
 private const val STOP_HALF_PX = 11f
 private const val EDGE_MARGIN_PX = 42f
+private const val PERMISSION_PROMPT_DELAY_MILLIS = 1500L

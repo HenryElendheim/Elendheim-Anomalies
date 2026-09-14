@@ -1,8 +1,5 @@
 package com.elendheim.anomalies.ui.common
 
-import androidx.compose.animation.core.AnimationSpec
-import androidx.compose.animation.core.snap
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -34,7 +31,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.elendheim.anomalies.ui.theme.LocalReduceMotion
 import com.elendheim.anomalies.ui.theme.theme
 
 /** The corner and spacing values every surface in the app is built from. */
@@ -47,17 +43,6 @@ object Sizes {
     val rowHeight = 46.dp
     val rowHeightLarge = 60.dp
 }
-
-/**
- * Animation length that collapses to nothing when the reduce motion setting is on,
- * which means a single call site handles the accessibility preference everywhere.
- */
-@Composable
-fun <T> motionSpec(durationMillis: Int = 300): AnimationSpec<T> =
-    if (LocalReduceMotion.current) snap() else tween(durationMillis)
-
-@Composable
-fun motionDuration(durationMillis: Int): Int = if (LocalReduceMotion.current) 0 else durationMillis
 
 /** The bordered panel every list row, tile and detail card is made of. */
 @Composable

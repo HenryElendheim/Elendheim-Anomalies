@@ -16,7 +16,6 @@ import com.elendheim.anomalies.location.Fix
 
 /** Everything the five main screens read from. One state object, one source of truth. */
 data class GameUiState(
-    val ready: Boolean = false,
     val player: PlayerStateEntity = PlayerStateEntity(),
     val owned: List<OwnedCreatureEntity> = emptyList(),
     val stops: List<StopEntity> = emptyList(),

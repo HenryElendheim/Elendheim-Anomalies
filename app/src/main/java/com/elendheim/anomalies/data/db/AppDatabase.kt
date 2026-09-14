@@ -41,11 +41,5 @@ abstract class AppDatabase : RoomDatabase() {
                 "elendheim-anomalies.db",
             ).addMigrations(*MIGRATIONS).build().also { instance = it }
         }
-
-        /** Used by the import flow, which replaces the contents rather than the file. */
-        fun closeForReplace() = synchronized(this) {
-            instance?.close()
-            instance = null
-        }
     }
 }

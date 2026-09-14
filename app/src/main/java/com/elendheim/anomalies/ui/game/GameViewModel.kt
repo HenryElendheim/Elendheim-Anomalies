@@ -71,7 +71,6 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             val companion = owned.firstOrNull { it.id == player.companionId }
             val def = companion?.let { roster[it.creatureId] }
             _state.value.copy(
-                ready = true,
                 player = player,
                 owned = owned,
                 stops = stops,
