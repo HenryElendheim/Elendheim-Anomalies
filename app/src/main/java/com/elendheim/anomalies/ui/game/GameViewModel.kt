@@ -138,10 +138,12 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun rollSpawn() {
         val current = _state.value
-        val fix = current.fix ?: return
+        // Anything past its lifetime goes first, so the map clears itself whether or not
+        // there is room for something new.
         val alive = current.spawns.filter { it.expiresAt > System.currentTimeMillis() }
-        if (alive.size >= SpawnEngine.MAX_ACTIVE_SPAWNS) {
-            _state.value = current.copy(spawns = alive)
+        val fix = current.fix
+        if (fix == null || alive.size >= SpawnEngine.MAX_ACTIVE_SPAWNS) {
+            if (alive.size != current.spawns.size) _state.value = current.copy(spawns = alive)
             return
         }
         val spawn = spawnEngine.spawnAt(fix.lat, fix.lng, current.effects, current.player.pityCounter)
