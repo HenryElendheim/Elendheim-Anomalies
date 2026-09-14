@@ -18,7 +18,7 @@ data class OwnedCreatureEntity(
     val statWard: Int,
     val xp: Int = 0,
     val stage: Int = 0,
-    val ljosSpent: Int = 0,
+    val powderSpent: Int = 0,
     val caughtAt: Long,
     val caughtLat: Double,
     val caughtLng: Double,
@@ -36,7 +36,6 @@ data class OwnedCreatureEntity(
 data class StopEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,
-    val elendianName: String? = null,
     val lat: Double,
     val lng: Double,
     val radiusMeters: Int = 60,
@@ -66,7 +65,7 @@ data class PlayerStateEntity(
     val shinies: Int = 0,
     val stopSpins: Int = 0,
     val metamorphoses: Int = 0,
-    val ljos: Int = 0,
+    val powder: Int = 0,
     val perfectThrows: Int = 0,
     val placesCsv: String = "",
     /** Rises with every rare or better catch missed, and resets when one lands. */

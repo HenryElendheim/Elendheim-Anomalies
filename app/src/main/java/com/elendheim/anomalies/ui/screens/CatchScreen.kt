@@ -2,7 +2,9 @@ package com.elendheim.anomalies.ui.screens
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -41,6 +43,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -67,7 +70,13 @@ import com.elendheim.anomalies.ui.theme.LocalReduceMotion
 import com.elendheim.anomalies.ui.theme.serifFlavor
 import com.elendheim.anomalies.ui.theme.LocalFontScale
 import com.elendheim.anomalies.ui.theme.theme
+import kotlinx.coroutines.delay
 import kotlin.math.abs
+
+/** Used when vibration is switched off, so the timeline does not need to keep checking. */
+private val NoHaptics = object : HapticFeedback {
+    override fun performHapticFeedback(hapticFeedbackType: HapticFeedbackType) = Unit
+}
 
 /**
  * The encounter. Drag the capsule and flick it: how tight the ring is when it leaves your
@@ -82,12 +91,12 @@ fun CatchScreen(viewModel: GameViewModel, session: CatchSession) {
 
     BackHandler { viewModel.abandonCatch() }
 
-    // A short buzz the moment a throw lands, when the setting allows it.
-    val haptics = LocalHapticFeedback.current
-    LaunchedEffect(session.phase) {
-        if (session.phase == CatchPhase.CAUGHT && state.settings.hapticsEnabled) {
-            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-        }
+    // The buzz is fired from the sealing timeline, so it lands on the click rather than
+    // after the result card has already appeared.
+    val haptics = if (state.settings.hapticsEnabled) {
+        LocalHapticFeedback.current
+    } else {
+        NoHaptics
     }
 
     // The shrinking ring. With reduce motion on it holds still at a fair size, which
@@ -123,16 +132,60 @@ fun CatchScreen(viewModel: GameViewModel, session: CatchSession) {
     }
 
     val flight = remember { Animatable(0f) }
+    // How far the creature has been drawn into the capsule, from one down to zero.
+    val absorb = remember { Animatable(1f) }
+    // Side to side rock of a sealed capsule, from minus one to one.
+    val rock = remember { Animatable(0f) }
+    // The burst as the capsule either clicks shut or springs open.
+    val burst = remember { Animatable(0f) }
     var dragTotal by remember { androidx.compose.runtime.mutableStateOf(Offset.Zero) }
 
+    val quickCatch = state.settings.quickCatches || reduceMotion
+
     LaunchedEffect(session.phase, session.spinTurns) {
-        if (session.phase == CatchPhase.FLYING) {
-            flight.snapTo(0f)
-            flight.animateTo(1f, tween(if (reduceMotion) 0 else FLIGHT_MILLIS, easing = LinearEasing))
-            viewModel.settleThrow()
-        } else if (session.phase == CatchPhase.AIMING) {
-            flight.snapTo(0f)
-            dragTotal = Offset.Zero
+        when (session.phase) {
+            CatchPhase.AIMING -> {
+                flight.snapTo(0f)
+                absorb.snapTo(1f)
+                rock.snapTo(0f)
+                burst.snapTo(0f)
+                dragTotal = Offset.Zero
+            }
+
+            CatchPhase.FLYING -> {
+                flight.snapTo(0f)
+                flight.animateTo(1f, tween(if (reduceMotion) 0 else FLIGHT_MILLIS, easing = LinearEasing))
+                viewModel.settleThrow()
+            }
+
+            CatchPhase.SEALING -> {
+                if (quickCatch) {
+                    absorb.snapTo(0f)
+                    viewModel.finishSealing()
+                    return@LaunchedEffect
+                }
+                // The creature is pulled in first, so there is a moment where it is
+                // already gone and the only question left is whether it stays gone.
+                absorb.animateTo(0f, tween(ABSORB_MILLIS, easing = FastOutSlowInEasing))
+                delay(SETTLE_PAUSE)
+                repeat(session.wobbles) { index ->
+                    // Each rock is a little slower than the last, so three of them read
+                    // as the capsule running out of fight rather than as a loop.
+                    val duration = ROCK_MILLIS + index * ROCK_SLOWDOWN
+                    val lean = if (index % 2 == 0) 1f else -1f
+                    rock.animateTo(lean, tween(duration, easing = FastOutSlowInEasing))
+                    rock.animateTo(0f, tween(duration, easing = FastOutSlowInEasing))
+                    delay(ROCK_GAP)
+                }
+                delay(VERDICT_PAUSE)
+                haptics.performHapticFeedback(
+                    if (session.succeeded) HapticFeedbackType.LongPress else HapticFeedbackType.TextHandleMove
+                )
+                burst.animateTo(1f, tween(BURST_MILLIS, easing = LinearOutSlowInEasing))
+                viewModel.finishSealing()
+            }
+
+            else -> Unit
         }
     }
 
@@ -180,14 +233,22 @@ fun CatchScreen(viewModel: GameViewModel, session: CatchSession) {
             )
 
             // The creature is drawn by the same canvas as the ring, which means the two
-            // can never drift apart on screen.
-            drawCreature(
-                center = creatureCentre + Offset(0f, bob * size.minDimension * 0.006f),
-                radius = size.minDimension * CREATURE_RADIUS_SHARE,
-                shape = session.def.shape,
-                bodyColor = shinyTint(session.def.bodyColor, session.spawn.isShiny),
-                eyeColor = session.def.eyeTint,
-            )
+            // can never drift apart on screen. During sealing it shrinks towards the
+            // capsule instead of vanishing, so it reads as being pulled in.
+            val creatureScale = absorb.value
+            if (creatureScale > 0.02f) {
+                val pulled = Offset(
+                    creatureCentre.x + (capsuleHome.x - creatureCentre.x) * (1f - creatureScale),
+                    creatureCentre.y + (capsuleHome.y - creatureCentre.y) * (1f - creatureScale) * 0.35f,
+                )
+                drawCreature(
+                    center = pulled + Offset(0f, bob * size.minDimension * 0.006f),
+                    radius = size.minDimension * CREATURE_RADIUS_SHARE * creatureScale,
+                    shape = session.def.shape,
+                    bodyColor = shinyTint(session.def.bodyColor, session.spawn.isShiny),
+                    eyeColor = session.def.eyeTint,
+                )
+            }
 
             if (session.phase == CatchPhase.AIMING) {
                 // The widest ring stays faint as a reference for how far it has left to go.
@@ -199,17 +260,25 @@ fun CatchScreen(viewModel: GameViewModel, session: CatchSession) {
 
             // The capsule sits at the bottom, follows the drag, then flies.
             val progress = flight.value
+            // Where the sealed capsule comes to rest, just under the creature's feet.
+            val restPosition = Offset(creatureCentre.x, creatureCentre.y + size.minDimension * 0.16f)
             val capsulePosition = when (session.phase) {
                 CatchPhase.AIMING -> capsuleHome + Offset(dragTotal.x * 0.4f, dragTotal.y * 0.25f)
                 CatchPhase.FLYING -> flightPoint(capsuleHome, creatureCentre, session.curveDirection, progress, size.width)
-                else -> creatureCentre
+                else -> restPosition
             }
             val capsuleScale = when (session.phase) {
                 CatchPhase.FLYING -> 1f - 0.45f * progress
                 CatchPhase.AIMING -> 1f
+                CatchPhase.SEALING -> SEALED_CAPSULE_SCALE
                 else -> 0f
             }
-            val rotationTurns = if (session.phase == CatchPhase.FLYING) session.spinTurns * progress else 0f
+            val rotationTurns = when (session.phase) {
+                CatchPhase.FLYING -> session.spinTurns * progress
+                // A rock is a small lean, not a tumble, so the capsule stays upright.
+                CatchPhase.SEALING -> rock.value * ROCK_LEAN_TURNS
+                else -> 0f
+            }
 
             if (capsuleScale > 0f) {
                 drawCapsule(
@@ -218,6 +287,18 @@ fun CatchScreen(viewModel: GameViewModel, session: CatchSession) {
                     turns = rotationTurns,
                     body = Color(session.capsule.colorHex),
                     core = colors.backgroundDeep,
+                )
+            }
+
+            // The verdict. A catch closes inward as a tightening ring, an escape throws
+            // the same ring outward and hands the creature back.
+            if (session.phase == CatchPhase.SEALING && burst.value > 0f) {
+                drawVerdict(
+                    centre = capsulePosition,
+                    progress = burst.value,
+                    succeeded = session.succeeded,
+                    radius = size.minDimension * 0.22f,
+                    tone = if (session.succeeded) colors.gold else colors.danger,
                 )
             }
 
@@ -255,7 +336,7 @@ fun CatchScreen(viewModel: GameViewModel, session: CatchSession) {
             }
         }
 
-        if (session.phase != CatchPhase.AIMING && session.phase != CatchPhase.FLYING) {
+        if (session.phase !in setOf(CatchPhase.AIMING, CatchPhase.FLYING, CatchPhase.SEALING)) {
             ResultSheet(
                 session = session,
                 onThrowAgain = { viewModel.nextAttempt() },
@@ -332,7 +413,11 @@ private fun ResultSheet(
             when (session.phase) {
                 CatchPhase.CAUGHT -> CaughtBody(session)
                 CatchPhase.FLED -> {
-                    Text("It slipped away", style = MaterialTheme.typography.titleMedium, color = theme.text)
+                    Text(
+                        if (session.wasCloseCall) "Gone, on the very last one" else "It slipped away",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = if (session.wasCloseCall) theme.gold else theme.text,
+                    )
                     Spacer(Modifier.height(4.dp))
                     Text(
                         "${session.def.name} is gone. Another will turn up.",
@@ -350,13 +435,25 @@ private fun ResultSheet(
                     )
                 }
                 else -> {
-                    Text("It broke free", style = MaterialTheme.typography.titleMedium, color = theme.text)
+                    Text(
+                        if (session.wasCloseCall) "It broke free at the last moment" else "It broke free",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = if (session.wasCloseCall) theme.gold else theme.text,
+                    )
                     Spacer(Modifier.height(4.dp))
                     Text(
                         throwSummary(session) + ", ${session.attemptsLeft - 1} left",
                         style = MaterialTheme.typography.bodySmall,
                         color = theme.textDim,
                     )
+                    if (session.wasCloseCall) {
+                        Spacer(Modifier.height(3.dp))
+                        Text(
+                            "The capsule held three times. That one was close.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = theme.gold,
+                        )
+                    }
                     if (session.capsuleRefunded) {
                         Spacer(Modifier.height(3.dp))
                         Text(
@@ -400,7 +497,7 @@ private fun CaughtBody(session: CatchSession) {
         Spacer(Modifier.height(8.dp))
         Text(
             "stats ${outcome.owned.statPercent} percent, ${outcome.playerXp} player XP" +
-                if (outcome.ljosGained > 0) ", ${outcome.ljosGained} Ljós" else "",
+                if (outcome.powderGained > 0) ", ${outcome.powderGained} Empower Powder" else "",
             style = MaterialTheme.typography.bodySmall,
             color = theme.textDim,
         )
@@ -457,6 +554,47 @@ private fun DrawScope.drawCapsule(centre: Offset, halfHeight: Float, turns: Floa
     }
 }
 
+/**
+ * The moment of truth around the capsule. A successful seal draws a ring closing in on
+ * it, and a break out throws the ring outward and scatters a few shards.
+ */
+private fun DrawScope.drawVerdict(
+    centre: Offset,
+    progress: Float,
+    succeeded: Boolean,
+    radius: Float,
+    tone: Color,
+) {
+    val fade = (1f - progress).coerceIn(0f, 1f)
+    val ringRadius = if (succeeded) radius * (1f - progress * 0.75f) else radius * (0.3f + progress * 1.1f)
+    drawCircle(
+        color = tone.copy(alpha = fade * 0.9f),
+        radius = ringRadius,
+        center = centre,
+        style = Stroke(width = 3f + 3f * fade),
+    )
+    if (succeeded) return
+
+    // Shards only on a break out, thrown outward along with the ring.
+    repeat(SHARDS) { index ->
+        val angle = index * 2.0 * Math.PI / SHARDS
+        val inner = ringRadius * 0.8f
+        val outer = inner + radius * 0.35f * progress
+        drawLine(
+            color = tone.copy(alpha = fade),
+            start = centre + Offset(
+                (kotlin.math.cos(angle) * inner).toFloat(),
+                (kotlin.math.sin(angle) * inner).toFloat(),
+            ),
+            end = centre + Offset(
+                (kotlin.math.cos(angle) * outer).toFloat(),
+                (kotlin.math.sin(angle) * outer).toFloat(),
+            ),
+            strokeWidth = 3f,
+        )
+    }
+}
+
 /** The arc the capsule travels, bent sideways by how much the flick curved. */
 private fun flightPoint(
     from: Offset,
@@ -499,3 +637,13 @@ private const val FLIGHT_MILLIS = 620
 private const val MIN_FLICK_PX = 40f
 private const val FLICK_FULL_SHARE = 0.42f
 private const val CURVE_TRAVEL_SHARE = 0.22f
+private const val ABSORB_MILLIS = 380
+private const val SETTLE_PAUSE = 260L
+private const val ROCK_MILLIS = 190
+private const val ROCK_SLOWDOWN = 45
+private const val ROCK_GAP = 340L
+private const val VERDICT_PAUSE = 420L
+private const val BURST_MILLIS = 460
+private const val ROCK_LEAN_TURNS = 0.055f
+private const val SHARDS = 7
+private const val SEALED_CAPSULE_SCALE = 0.55f

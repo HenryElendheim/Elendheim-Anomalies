@@ -11,23 +11,35 @@ whole save can be written out to a file you choose.
 
 - **Map** centred on you, showing the radius anomalies appear in, your stops and whatever
   is standing around right now.
-- **Stops** you place by hand at the places you actually wait. Each one hands over
-  capsules on a cooldown you set yourself.
+- **Stops** you place by hand: pick the plus button, tap the map where it goes, nudge it
+  until it sits right, then confirm. Each one hands over capsules on a cooldown you set
+  yourself. A stop that is ready to spin is a large square, one still counting down is a
+  small grey strip with a live timer, so the shape alone tells you where to go.
+- **The spin**, which throws the stop marker into a long decelerating turn and then hands
+  the drops over one at a time, plainest first, so the best one is always the one you are
+  still waiting for.
 - **The catch.** Flick a capsule at the creature. How tight the timing ring is, whether
   the throw curves, and whether the cylinder lands upright all raise the odds, and each
-  one also pays experience, so skill matters even on a common.
+  one also pays experience, so skill matters even on a common. The creature is drawn into
+  the capsule, which then rocks on the ground: a catch always rocks three times before it
+  clicks, and a miss rocks a number of times taken from how close the roll actually came,
+  so three rocks followed by a break out genuinely means it nearly held.
 - **Codex** of every creature, with the ones you have not found yet shown as silhouettes.
 - **Companion** that grows from the distance you travel, the stops you spin and the
   catches you make, and metamorphoses when the lore supports it.
 - **Six rarity tiers** plus an independent shiny roll on any spawn at all, with a pity
   counter so a long dry run gets shorter.
+- **Empower Powder**, earned from Essence capsules and given to a creature to make it
+  gain experience faster. It changes the rate, never the journey.
 - **Export and import** straight from the settings screen to any file you pick.
 
 ## Accessibility
 
 The settings screen carries high contrast, five text sizes that reach every screen,
 reduce motion, large touch targets, distance labels and vibration. Reduce motion also
-holds the catch ring steady, so the throw is scored on the flick alone.
+holds the catch ring steady, so the throw is scored on the flick alone. Quick spins and
+quick catches skip the two long animations on their own, for when the flourish has
+stopped being fun.
 
 ## Building it
 
@@ -54,6 +66,12 @@ key instead, set `ELENDHEIM_KEYSTORE_FILE`, `ELENDHEIM_KEYSTORE_PASSWORD`,
 Roster entries live in `app/src/main/assets/creatures.json`. Sprites are drawn from a
 shape and a colour in code, so a new creature is a JSON entry and nothing else. Shinies
 are a hue shift of the same silhouette.
+
+## Updating the schema
+
+The database ships its migrations from version one, in `AppDatabase.MIGRATIONS`. A schema
+change without a migration would wipe a real collection, so every version bump brings the
+data across by hand.
 
 ## Licence
 

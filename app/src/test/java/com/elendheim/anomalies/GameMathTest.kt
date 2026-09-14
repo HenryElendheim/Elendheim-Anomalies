@@ -1,6 +1,8 @@
 package com.elendheim.anomalies
 
+import com.elendheim.anomalies.data.repo.SpinReward
 import com.elendheim.anomalies.game.CapsuleType
+import com.elendheim.anomalies.game.ItemRarity
 import com.elendheim.anomalies.game.CatchMath
 import com.elendheim.anomalies.game.FieldEffects
 import com.elendheim.anomalies.game.FieldPower
@@ -86,6 +88,21 @@ class GameMathTest {
     }
 
     @Test
+    fun `a near miss rocks the capsule more than a hopeless one`() {
+        // A roll landing just past the chance is the heartbreaker and rocks the full set.
+        assertEquals(3, CatchMath.wobblesForMiss(roll = 0.51, chance = 0.50, maxWobbles = 3))
+        // The worst possible roll barely moves it at all.
+        assertEquals(0, CatchMath.wobblesForMiss(roll = 0.99, chance = 0.10, maxWobbles = 3))
+        // And the count never runs backwards as the roll gets worse.
+        var previous = 3
+        for (step in 0..20) {
+            val count = CatchMath.wobblesForMiss(roll = 0.3 + step * 0.035, chance = 0.3, maxWobbles = 3)
+            assertTrue("wobbles should not climb as the roll worsens", count <= previous)
+            previous = count
+        }
+    }
+
+    @Test
     fun `a flat tumble counts as upright and a half turn off does not`() {
         assertTrue(CatchMath.landsUpright(2.0f))
         assertTrue(CatchMath.landsUpright(2.5f))
@@ -125,9 +142,37 @@ class GameMathTest {
     }
 
     @Test
-    fun `ljos speeds a companion up without letting it run away`() {
-        assertEquals(1.0, Progression.ljosRate(0), 0.0001)
-        assertTrue(Progression.ljosRate(5) > Progression.ljosRate(0))
-        assertTrue(Progression.ljosRate(1000) <= 3.0)
+    fun `powder speeds a companion up without letting it run away`() {
+        assertEquals(1.0, Progression.powderRate(0), 0.0001)
+        assertTrue(Progression.powderRate(5) > Progression.powderRate(0))
+        assertTrue(Progression.powderRate(1000) <= 3.0)
+    }
+
+    @Test
+    fun `a better capsule is a rarer capsule`() {
+        assertEquals(ItemRarity.STANDARD, CapsuleType.CAPTURE.rarity)
+        assertEquals(ItemRarity.EPIC, CapsuleType.PRIME.rarity)
+        // The catch tiers line up with the rarity tiers, so the reveal never oversells.
+        assertTrue(CapsuleType.PRIME.catchMultiplier > CapsuleType.ENHANCED.catchMultiplier)
+        assertTrue(CapsuleType.ENHANCED.rarity.ordinal > CapsuleType.CAPTURE.rarity.ordinal)
+    }
+
+    @Test
+    fun `a spin reveals its plainest drop first and its best one last`() {
+        val reward = SpinReward(
+            items = mapOf(
+                CapsuleType.PRIME to 1,
+                CapsuleType.CAPTURE to 2,
+                CapsuleType.ENHANCED to 1,
+            ),
+            bonusSpawn = false,
+            playerXp = 12,
+        )
+        assertEquals(
+            listOf(CapsuleType.CAPTURE, CapsuleType.ENHANCED, CapsuleType.PRIME),
+            reward.revealOrder.map { it.first },
+        )
+        assertEquals(CapsuleType.PRIME, reward.best)
+        assertEquals(4, reward.totalItems)
     }
 }

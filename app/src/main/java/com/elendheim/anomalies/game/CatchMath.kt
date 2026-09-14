@@ -82,6 +82,24 @@ object CatchMath {
     /** A flick with real sideways travel counts as a curve. */
     fun isCurve(sidewaysFraction: Float): Boolean = abs(sidewaysFraction) >= CURVE_THRESHOLD
 
+    /**
+     * How near a failed throw came, expressed as rocks of the capsule before it opens.
+     * A roll that only just missed rocks the full set, a hopeless one barely rocks at
+     * all, which is what makes watching the third rock worth something.
+     */
+    fun wobblesForMiss(roll: Double, chance: Double, maxWobbles: Int): Int {
+        // How far into the losing part of the range the roll landed, from zero right at
+        // the edge of success to one at the worst roll possible.
+        val headroom = (1.0 - chance).coerceAtLeast(1e-6)
+        val shortfall = ((roll - chance) / headroom).coerceIn(0.0, 1.0)
+        return when {
+            shortfall < 0.18 -> maxWobbles
+            shortfall < 0.45 -> 2
+            shortfall < 0.75 -> 1
+            else -> 0
+        }
+    }
+
     const val UPRIGHT_TOLERANCE = 0.07f
     const val CURVE_THRESHOLD = 0.28f
 }

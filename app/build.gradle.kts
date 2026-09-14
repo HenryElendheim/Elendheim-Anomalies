@@ -8,8 +8,8 @@ plugins {
 
 // The single place the app version lives. Everything else reads it from
 // BuildConfig, which means the settings screen can never drift out of sync.
-val appVersionName = "1.0"
-val appVersionCode = 1
+val appVersionName = "1.001"
+val appVersionCode = 2
 
 android {
     namespace = "com.elendheim.anomalies"

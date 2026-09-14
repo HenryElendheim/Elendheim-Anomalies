@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.elendheim.anomalies.game.CapsuleType
+import com.elendheim.anomalies.game.ItemRarity
 import com.elendheim.anomalies.game.Progression
 import com.elendheim.anomalies.ui.common.Dot
 import com.elendheim.anomalies.ui.common.ElCard
@@ -79,7 +80,7 @@ fun ItemsScreen(viewModel: GameViewModel) {
                         Dot(theme.gold, 12.dp)
                         Spacer(Modifier.width(10.dp))
                         Column(Modifier.weight(1f)) {
-                            Text("Ljós", style = MaterialTheme.typography.titleSmall, color = theme.text)
+                            Text("Empower Powder", style = MaterialTheme.typography.titleSmall, color = theme.text)
                             Spacer(Modifier.height(2.dp))
                             Text(
                                 "given to a creature to make it grow faster",
@@ -88,7 +89,7 @@ fun ItemsScreen(viewModel: GameViewModel) {
                             )
                         }
                         Text(
-                            "x${state.player.ljos}",
+                            "x${state.player.powder}",
                             style = MaterialTheme.typography.titleMedium,
                             color = theme.textBright,
                         )
@@ -113,6 +114,17 @@ private fun CapsuleRow(type: CapsuleType, count: Int) {
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(type.description, style = MaterialTheme.typography.labelSmall, color = theme.textDim)
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    type.rarity.label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = when (type.rarity) {
+                        ItemRarity.STANDARD -> theme.textDim
+                        ItemRarity.UNCOMMON -> theme.textMid
+                        ItemRarity.RARE -> theme.accent
+                        ItemRarity.EPIC -> theme.gold
+                    },
+                )
             }
             Text(
                 "x$count",

@@ -1,10 +1,13 @@
 package com.elendheim.anomalies.ui.screens
 
 import android.Manifest
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,9 +18,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -46,10 +52,14 @@ import com.elendheim.anomalies.game.Geo
 import com.elendheim.anomalies.game.Spawn
 import com.elendheim.anomalies.ui.common.CreatureSprite
 import com.elendheim.anomalies.ui.common.ElCard
+import com.elendheim.anomalies.ui.common.GhostButton
 import com.elendheim.anomalies.ui.common.MeterBar
 import com.elendheim.anomalies.ui.common.PrimaryButton
 import com.elendheim.anomalies.ui.common.Sizes
+import com.elendheim.anomalies.ui.common.dialogFieldColors
+import com.elendheim.anomalies.ui.common.dialogSliderColors
 import com.elendheim.anomalies.ui.game.GameViewModel
+import com.elendheim.anomalies.ui.game.StopDraft
 import com.elendheim.anomalies.ui.theme.theme
 import kotlinx.coroutines.delay
 import kotlin.math.hypot
@@ -90,6 +100,7 @@ fun MapScreen(viewModel: GameViewModel) {
         )
     }
 
+    val draft by viewModel.stopDraft.collectAsStateWithLifecycle()
     val fix = state.fix
     var canvasSize by remember { mutableStateOf(Offset.Zero) }
 
@@ -113,16 +124,40 @@ fun MapScreen(viewModel: GameViewModel) {
                 buildMarkers(state.spawns, state.stops, fix.lat, fix.lng, canvasSize, radiusMeters)
             }
 
+            val placing = draft != null
             Canvas(
                 modifier = Modifier
                     .fillMaxSize()
                     .onSizeChanged { canvasSize = Offset(it.width.toFloat(), it.height.toFloat()) }
-                    .pointerInput(markers) {
+                    .pointerInput(markers, placing, radiusMeters) {
                         detectTapGestures { tap ->
+                            if (placing) {
+                                // Anywhere on the map is a valid spot, so a tap simply
+                                // moves the marker there and the panel handles the rest.
+                                val (lat, lng) = screenToWorld(tap, Offset(size.width.toFloat(), size.height.toFloat()), fix.lat, fix.lng, radiusMeters)
+                                viewModel.movePlacement(lat, lng)
+                                return@detectTapGestures
+                            }
                             val hit = markers.minByOrNull { (it.position - tap).getDistance() }
                             if (hit == null || (hit.position - tap).getDistance() > TAP_SLOP_PX) return@detectTapGestures
                             hit.spawn?.let { viewModel.beginCatch(it) }
                             hit.stop?.let { viewModel.spinStop(it.id) }
+                        }
+                    }
+                    .pointerInput(placing, radiusMeters) {
+                        if (!placing) return@pointerInput
+                        // Dragging nudges the marker, which is how a spot gets fine tuned
+                        // once it is roughly right.
+                        detectDragGestures { change, _ ->
+                            change.consume()
+                            val (lat, lng) = screenToWorld(
+                                change.position,
+                                Offset(size.width.toFloat(), size.height.toFloat()),
+                                fix.lat,
+                                fix.lng,
+                                radiusMeters,
+                            )
+                            viewModel.movePlacement(lat, lng)
                         }
                     }
             ) {
@@ -168,10 +203,32 @@ fun MapScreen(viewModel: GameViewModel) {
                 // The player sits in the middle and the world moves around them.
                 drawCircle(colors.textMid, PLAYER_RADIUS_PX, centre)
                 drawCircle(colors.backgroundDeep, PLAYER_RADIUS_PX, centre, style = Stroke(width = 3f))
+
+                // The stop being placed, shown with the catchment it will actually have.
+                draft?.let { pending ->
+                    val position = worldToScreen(
+                        pending.lat, pending.lng, fix.lat, fix.lng, Offset(size.width, size.height), radiusMeters,
+                    )
+                    val catchment = pending.radiusMeters * pixelsPerMeter
+                    drawCircle(colors.gold.copy(alpha = 0.12f), catchment, position)
+                    drawCircle(colors.gold.copy(alpha = 0.6f), catchment, position, style = Stroke(width = 2f))
+                    rotate(45f, position) {
+                        drawRoundRect(
+                            color = colors.gold,
+                            topLeft = position - Offset(STOP_HALF_PX, STOP_HALF_PX),
+                            size = androidx.compose.ui.geometry.Size(STOP_HALF_PX * 2, STOP_HALF_PX * 2),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(6f),
+                        )
+                    }
+                    // Crosshair lines so the exact centre is unmistakable while dragging.
+                    drawLine(colors.gold, position - Offset(22f, 0f), position + Offset(22f, 0f), 1.5f)
+                    drawLine(colors.gold, position - Offset(0f, 22f), position + Offset(0f, 22f), 1.5f)
+                }
             }
 
             // Creature sprites sit above the canvas so they can carry the idle motion.
-            markers.forEach { marker ->
+            // They step aside while a stop is being placed so nothing is tapped by mistake.
+            if (draft == null) markers.forEach { marker ->
                 val spawn = marker.spawn ?: return@forEach
                 val def = viewModel.definitionOf(spawn.creatureId) ?: return@forEach
                 val sizeDp = 40.dp
@@ -188,15 +245,29 @@ fun MapScreen(viewModel: GameViewModel) {
                 }
             }
 
-            StopLabels(markers, state.settings.showDistances, fix.lat, fix.lng)
+            if (draft == null) StopLabels(markers, state.settings.showDistances, fix.lat, fix.lng)
         }
 
-        CompanionChip(viewModel, Modifier.align(Alignment.TopStart))
-        BiomeChip(
-            biome = state.biome.label,
-            band = state.timeBand.label,
-            modifier = Modifier.align(Alignment.TopEnd),
-        )
+        if (draft == null) {
+            CompanionChip(viewModel, Modifier.align(Alignment.TopStart))
+            BiomeChip(
+                biome = state.biome.label,
+                band = state.timeBand.label,
+                modifier = Modifier.align(Alignment.TopEnd),
+            )
+        }
+
+        draft?.let { pending ->
+            PlacementPanel(
+                draft = pending,
+                onName = { viewModel.editDraft(name = it) },
+                onRadius = { viewModel.editDraft(radiusMeters = it) },
+                onCooldown = { viewModel.editDraft(cooldownMinutes = it) },
+                onConfirm = { viewModel.confirmPlacement() },
+                onCancel = { viewModel.cancelPlacement() },
+                modifier = Modifier.align(Alignment.BottomCenter),
+            )
+        }
     }
 }
 
@@ -308,6 +379,139 @@ private fun NoPositionState(hasPermission: Boolean, onRequest: () -> Unit) {
             PrimaryButton("Allow location", Modifier.width(220.dp)) { onRequest() }
         }
     }
+}
+
+/**
+ * The panel that sits over the map while a stop is being positioned. It asks for a spot
+ * first and only offers Confirm once one has been chosen.
+ */
+@Composable
+private fun PlacementPanel(
+    draft: StopDraft,
+    onName: (String) -> Unit,
+    onRadius: (Int) -> Unit,
+    onCooldown: (Int) -> Unit,
+    onConfirm: () -> Unit,
+    onCancel: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    BackHandler { onCancel() }
+    var expanded by remember { mutableStateOf(false) }
+
+    Column(
+        modifier
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            .padding(Sizes.gutter),
+    ) {
+        ElCard(borderColor = theme.gold) {
+            Text(
+                if (draft.placed) "Drag to nudge it, or tap somewhere else" else "Tap the map where this stop goes",
+                style = MaterialTheme.typography.titleSmall,
+                color = theme.text,
+            )
+            Spacer(Modifier.height(3.dp))
+            Text(
+                if (draft.placed) {
+                    "${draft.radiusMeters} m catchment, ${draft.cooldownMinutes} min cooldown"
+                } else {
+                    "It can go anywhere, not just where you are standing"
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = theme.textDim,
+            )
+
+            if (draft.placed) {
+                Spacer(Modifier.height(10.dp))
+                OutlinedTextField(
+                    value = draft.name,
+                    onValueChange = onName,
+                    label = { Text("Name") },
+                    singleLine = true,
+                    colors = dialogFieldColors(),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    if (expanded) "Hide the dials" else "Adjust radius and cooldown",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = theme.accent,
+                    modifier = Modifier
+                        .clickable { expanded = !expanded }
+                        .padding(vertical = 6.dp),
+                )
+
+                if (expanded) {
+                    Text(
+                        "Radius ${draft.radiusMeters} m",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = theme.textMid,
+                    )
+                    Slider(
+                        value = draft.radiusMeters.toFloat(),
+                        onValueChange = { onRadius(it.roundToInt()) },
+                        valueRange = 25f..250f,
+                        colors = dialogSliderColors(),
+                    )
+                    Text(
+                        "Cooldown ${draft.cooldownMinutes} min",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = theme.textMid,
+                    )
+                    Slider(
+                        value = draft.cooldownMinutes.toFloat(),
+                        onValueChange = { onCooldown(it.roundToInt()) },
+                        valueRange = 1f..60f,
+                        colors = dialogSliderColors(),
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(10.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            PrimaryButton(
+                text = if (draft.placed) "Place it here" else "Pick a spot first",
+                modifier = Modifier.weight(1f),
+                enabled = draft.placed,
+                tone = theme.gold,
+                onClick = onConfirm,
+            )
+            GhostButton("Cancel", Modifier.weight(1f)) { onCancel() }
+        }
+    }
+}
+
+/** Turns a point on screen back into coordinates, which is what makes tapping work. */
+private fun screenToWorld(
+    point: Offset,
+    canvas: Offset,
+    originLat: Double,
+    originLng: Double,
+    radiusMeters: Double,
+): Pair<Double, Double> {
+    val pixelsPerMeter = (minOf(canvas.x, canvas.y) * RADIUS_SCREEN_SHARE) / radiusMeters
+    val eastMeters = (point.x - canvas.x / 2f) / pixelsPerMeter
+    val northMeters = -(point.y - canvas.y / 2f) / pixelsPerMeter
+    return Geo.offset(originLat, originLng, northMeters, eastMeters)
+}
+
+/** The other direction, used to draw the marker where it was dropped. */
+private fun worldToScreen(
+    lat: Double,
+    lng: Double,
+    originLat: Double,
+    originLng: Double,
+    canvas: Offset,
+    radiusMeters: Double,
+): Offset {
+    val pixelsPerMeter = (minOf(canvas.x, canvas.y) * RADIUS_SCREEN_SHARE) / radiusMeters
+    val (north, east) = Geo.toLocalMeters(originLat, originLng, lat, lng)
+    return Offset(
+        canvas.x / 2f + (east * pixelsPerMeter).toFloat(),
+        canvas.y / 2f - (north * pixelsPerMeter).toFloat(),
+    )
 }
 
 /** Works out where every spawn and stop lands on screen, clamping far stops to the edge. */

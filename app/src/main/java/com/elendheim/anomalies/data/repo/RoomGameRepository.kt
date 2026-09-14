@@ -90,11 +90,12 @@ class RoomGameRepository(
         if (now - stop.lastSpunAt < stop.cooldownMinutes * 60_000L) return null
 
         // A short cooldown means small drops, which keeps a single capsule worth something.
+        // The odds fall away as the item rarity climbs, so a Prime stays an event.
         val drop = buildMap {
             put(CapsuleType.CAPTURE, 1 + random.nextInt(2) + extraItems)
+            if (random.nextInt(100) < 9) put(CapsuleType.SPARK, 1)
+            if (random.nextInt(100) < 7) put(CapsuleType.ESSENCE, 1)
             if (random.nextInt(100) < 12) put(CapsuleType.ENHANCED, 1)
-            if (random.nextInt(100) < 7) put(CapsuleType.SPARK, 1)
-            if (random.nextInt(100) < 5) put(CapsuleType.ESSENCE, 1)
             if (random.nextInt(100) < 2) put(CapsuleType.PRIME, 1)
         }
         val bonusSpawn = random.nextInt(100) < 10
@@ -145,10 +146,10 @@ class RoomGameRepository(
         val newId = db.ownedCreatures().insert(entity)
 
         var xpGain = Progression.catchXp(def.rarity, isShiny) + skillXp
-        var ljosGain = 0
+        var powderGain = 0
         when (capsule.bonus) {
             CapsuleBonus.PLAYER_XP -> xpGain += Progression.SPARK_BONUS_XP
-            CapsuleBonus.LJOS -> ljosGain = Progression.ESSENCE_LJOS
+            CapsuleBonus.POWDER -> powderGain = Progression.ESSENCE_POWDER
             null -> Unit
         }
 
@@ -162,7 +163,7 @@ class RoomGameRepository(
                 xp = xpAfter,
                 totalCatches = before.totalCatches + 1,
                 shinies = before.shinies + if (isShiny) 1 else 0,
-                ljos = before.ljos + ljosGain,
+                powder = before.powder + powderGain,
                 placesCsv = places.joinToString("|"),
                 // A notable catch resets the pity counter, anything else leaves it climbing.
                 pityCounter = if (def.rarity.isNotable) 0 else before.pityCounter + 1,
@@ -178,7 +179,7 @@ class RoomGameRepository(
         return CatchOutcome(
             owned = entity.copy(id = newId),
             playerXp = xpGain,
-            ljosGained = ljosGain,
+            powderGained = powderGain,
             levelledUpTo = if (levelAfter > levelBefore) levelAfter else null,
             isNewToCodex = isNewToCodex,
         )
@@ -228,8 +229,8 @@ class RoomGameRepository(
         val companion = db.ownedCreatures().byId(companionId) ?: return CompanionProgress(0, null)
         val def = roster[companion.creatureId] ?: return CompanionProgress(0, null)
 
-        // Ljós fed to a creature makes it gain experience faster, it never skips the journey.
-        val boosted = (amount * Progression.ljosRate(companion.ljosSpent)).toInt().coerceAtLeast(1)
+        // Powder fed to a creature makes it gain experience faster, it never skips the journey.
+        val boosted = (amount * Progression.powderRate(companion.powderSpent)).toInt().coerceAtLeast(1)
         val newXp = companion.xp + boosted
 
         if (def.metamorphoses && newXp >= def.metamorphXp) {
@@ -248,12 +249,12 @@ class RoomGameRepository(
         return CompanionProgress(boosted, null)
     }
 
-    override suspend fun feedLjos(ownedId: Long, amount: Int): Boolean {
+    override suspend fun feedPowder(ownedId: Long, amount: Int): Boolean {
         val state = player()
-        if (amount <= 0 || state.ljos < amount) return false
+        if (amount <= 0 || state.powder < amount) return false
         val owned = db.ownedCreatures().byId(ownedId) ?: return false
-        db.ownedCreatures().update(owned.copy(ljosSpent = owned.ljosSpent + amount))
-        db.player().update(state.copy(ljos = state.ljos - amount))
+        db.ownedCreatures().update(owned.copy(powderSpent = owned.powderSpent + amount))
+        db.player().update(state.copy(powder = state.powder - amount))
         return true
     }
 
@@ -274,7 +275,7 @@ class RoomGameRepository(
                 shinies = state.shinies,
                 stopSpins = state.stopSpins,
                 metamorphoses = state.metamorphoses,
-                ljos = state.ljos,
+                powder = state.powder,
                 perfectThrows = state.perfectThrows,
                 places = state.places,
                 pityCounter = state.pityCounter,
@@ -283,13 +284,13 @@ class RoomGameRepository(
             creatures = owned.map {
                 OwnedBackup(
                     it.creatureId, it.isShiny, it.statPower, it.statGrace, it.statWard,
-                    it.xp, it.stage, it.ljosSpent, it.caughtAt, it.caughtLat, it.caughtLng,
+                    it.xp, it.stage, it.powderSpent, it.caughtAt, it.caughtLat, it.caughtLng,
                     it.caughtPlace, it.nickname,
                 )
             },
             stops = db.stops().all().map {
                 StopBackup(
-                    it.name, it.elendianName, it.lat, it.lng, it.radiusMeters, it.cooldownMinutes,
+                    it.name, it.lat, it.lng, it.radiusMeters, it.cooldownMinutes,
                     it.lastSpunAt, it.createdAt, it.spins, it.itemsEarned, it.bonusSpawns,
                 )
             },
@@ -313,7 +314,7 @@ class RoomGameRepository(
                     statWard = backup.statWard,
                     xp = backup.xp,
                     stage = backup.stage,
-                    ljosSpent = backup.ljosSpent,
+                    powderSpent = backup.powderSpent,
                     caughtAt = backup.caughtAt,
                     caughtLat = backup.caughtLat,
                     caughtLng = backup.caughtLng,
@@ -326,7 +327,6 @@ class RoomGameRepository(
             db.stops().insert(
                 StopEntity(
                     name = backup.name,
-                    elendianName = backup.elendianName,
                     lat = backup.lat,
                     lng = backup.lng,
                     radiusMeters = backup.radiusMeters,
@@ -354,7 +354,7 @@ class RoomGameRepository(
                 shinies = backupPlayer.shinies,
                 stopSpins = backupPlayer.stopSpins,
                 metamorphoses = backupPlayer.metamorphoses,
-                ljos = backupPlayer.ljos,
+                powder = backupPlayer.powder,
                 perfectThrows = backupPlayer.perfectThrows,
                 placesCsv = backupPlayer.places.joinToString("|"),
                 pityCounter = backupPlayer.pityCounter,

@@ -95,9 +95,9 @@ fun CodexScreen(viewModel: GameViewModel) {
                 def = open,
                 owned = ownedByCreature[open.id].orEmpty(),
                 companionId = state.player.companionId,
-                ljos = state.player.ljos,
+                powder = state.player.powder,
                 onSetCompanion = { viewModel.setCompanion(it) },
-                onFeedLjos = { viewModel.feedLjos(it, 1) },
+                onFeedPowder = { viewModel.feedPowder(it, 1) },
                 onRelease = { viewModel.releaseOwned(it) },
             )
         }
@@ -156,9 +156,9 @@ private fun CodexDetail(
     def: CreatureDef,
     owned: List<OwnedCreatureEntity>,
     companionId: Long?,
-    ljos: Int,
+    powder: Int,
     onSetCompanion: (Long) -> Unit,
-    onFeedLjos: (Long) -> Unit,
+    onFeedPowder: (Long) -> Unit,
     onRelease: (Long) -> Unit,
 ) {
     val found = owned.isNotEmpty()
@@ -212,10 +212,10 @@ private fun CodexDetail(
                 IndividualRow(
                     individual = individual,
                     isCompanion = individual.id == companionId,
-                    canFeed = ljos > 0,
+                    canFeed = powder > 0,
                     dateFormat = dateFormat,
                     onSetCompanion = { onSetCompanion(individual.id) },
-                    onFeedLjos = { onFeedLjos(individual.id) },
+                    onFeedPowder = { onFeedPowder(individual.id) },
                     onRelease = { onRelease(individual.id) },
                 )
                 Spacer(Modifier.height(8.dp))
@@ -239,7 +239,7 @@ private fun IndividualRow(
     canFeed: Boolean,
     dateFormat: SimpleDateFormat,
     onSetCompanion: () -> Unit,
-    onFeedLjos: () -> Unit,
+    onFeedPowder: () -> Unit,
     onRelease: () -> Unit,
 ) {
     Column(
@@ -276,7 +276,7 @@ private fun IndividualRow(
                 PrimaryButton("Take along", Modifier.weight(1f)) { onSetCompanion() }
             }
             if (canFeed) {
-                GhostButton("Give Ljós", Modifier.weight(1f)) { onFeedLjos() }
+                GhostButton("Empower", Modifier.weight(1f)) { onFeedPowder() }
             }
             GhostButton("Release", Modifier.weight(1f), tint = theme.danger) { onRelease() }
         }

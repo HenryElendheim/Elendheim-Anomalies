@@ -53,6 +53,12 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private val _message = MutableStateFlow<String?>(null)
     val message: StateFlow<String?> = _message.asStateFlow()
 
+    private val _spin = MutableStateFlow<SpinSession?>(null)
+    val spinSession: StateFlow<SpinSession?> = _spin.asStateFlow()
+
+    private val _draft = MutableStateFlow<StopDraft?>(null)
+    val stopDraft: StateFlow<StopDraft?> = _draft.asStateFlow()
+
     private var locationJob: Job? = null
     private var spawnJob: Job? = null
     private var lastFix: Fix? = null
@@ -159,23 +165,56 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     // Stops --------------------------------------------------------------------------
 
-    fun placeStop(name: String, elendianName: String?, radiusMeters: Int, cooldownMinutes: Int) {
-        val fix = _state.value.fix ?: run {
+    /**
+     * Opens the placement flow. The draft starts unplaced and sitting on the player, so
+     * the map can ask for a spot and then let the marker be dragged until it is right.
+     */
+    fun beginPlacement() {
+        val fix = _state.value.fix
+        if (fix == null) {
             announce("A position is needed before a stop can be placed")
             return
         }
+        _draft.value = StopDraft(lat = fix.lat, lng = fix.lng)
+    }
+
+    /** Called on every tap and every drag of the marker while a draft is open. */
+    fun movePlacement(lat: Double, lng: Double) {
+        _draft.value = _draft.value?.copy(lat = lat, lng = lng, placed = true)
+    }
+
+    fun editDraft(
+        name: String? = null,
+        radiusMeters: Int? = null,
+        cooldownMinutes: Int? = null,
+    ) {
+        val draft = _draft.value ?: return
+        _draft.value = draft.copy(
+            name = name ?: draft.name,
+            radiusMeters = radiusMeters ?: draft.radiusMeters,
+            cooldownMinutes = cooldownMinutes ?: draft.cooldownMinutes,
+        )
+    }
+
+    fun cancelPlacement() {
+        _draft.value = null
+    }
+
+    fun confirmPlacement() {
+        val draft = _draft.value ?: return
+        _draft.value = null
         viewModelScope.launch {
             repository.addStop(
                 StopEntity(
-                    name = name.ifBlank { "Stop" },
-                    elendianName = elendianName?.takeIf { it.isNotBlank() },
-                    lat = fix.lat,
-                    lng = fix.lng,
-                    radiusMeters = radiusMeters,
-                    cooldownMinutes = cooldownMinutes,
+                    name = draft.name.ifBlank { "Stop" },
+                    lat = draft.lat,
+                    lng = draft.lng,
+                    radiusMeters = draft.radiusMeters,
+                    cooldownMinutes = draft.cooldownMinutes,
                     createdAt = System.currentTimeMillis(),
                 )
             )
+            announce("${draft.name.ifBlank { "Stop" }} placed")
         }
     }
 
@@ -199,10 +238,18 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 announce("${stop.name} is still on cooldown")
                 return@launch
             }
-            val summary = reward.items.entries.joinToString(", ") { "${it.value} ${it.key.label.lowercase()}" }
-            announce(if (summary.isBlank()) "Nothing left to carry" else summary)
+            if (reward.totalItems == 0) {
+                announce("No room left to carry anything")
+                return@launch
+            }
+            // The overlay owns the spin and the reveal from here, and closes itself.
+            _spin.value = SpinSession(stop.name, reward)
             if (reward.bonusSpawn) spawnAtStop(stop.lat, stop.lng)
         }
+    }
+
+    fun dismissSpin() {
+        _spin.value = null
     }
 
     // The catch ----------------------------------------------------------------------
@@ -257,7 +304,15 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         )
     }
 
-    /** Called once the capsule has finished its flight, which is when the roll is made. */
+    /**
+     * Called once the capsule has finished its flight, which is when the roll is made.
+     *
+     * The outcome is decided and written down here, but the screen is only moved as far
+     * as SEALING. What it gets alongside that is a wobble count, and that is the whole
+     * trick: a catch always rocks three times before it clicks, and a miss rocks a
+     * number of times drawn from how close the roll actually came. So three wobbles
+     * genuinely means it nearly held, and watching the third one is worth something.
+     */
     fun settleThrow() {
         val session = _catch.value ?: return
         if (session.phase != CatchPhase.FLYING) return
@@ -269,7 +324,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 _catch.value = session.copy(phase = CatchPhase.OUT_OF_CAPSULES)
                 return@launch
             }
-            val caught = CatchMath.succeeds(session.def, session.capsule, result, random)
+            val chance = CatchMath.chance(session.def, session.capsule, result)
+            val roll = random.nextDouble()
+            val caught = roll < chance
             val fix = _state.value.fix
 
             if (caught) {
@@ -289,7 +346,13 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     return@launch
                 }
                 removeSpawn(session.spawn)
-                _catch.value = session.copy(phase = CatchPhase.CAUGHT, succeeded = true, outcome = outcome)
+                _catch.value = session.copy(
+                    phase = CatchPhase.SEALING,
+                    settledPhase = CatchPhase.CAUGHT,
+                    succeeded = true,
+                    outcome = outcome,
+                    wobbles = CatchSession.MAX_WOBBLES,
+                )
                 return@launch
             }
 
@@ -298,14 +361,28 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             val refunded = random.nextDouble() < _state.value.effects.capsuleRefundChance
             if (refunded) repository.grantItems(mapOf(session.capsule to 1))
 
-            if (session.attempt >= MAX_CATCH_ATTEMPTS) {
+            val settled = if (session.attempt >= MAX_CATCH_ATTEMPTS) {
                 repository.recordFlee(session.def.rarity.isNotable)
                 removeSpawn(session.spawn)
-                _catch.value = session.copy(phase = CatchPhase.FLED, capsuleRefunded = refunded)
+                CatchPhase.FLED
             } else {
-                _catch.value = session.copy(phase = CatchPhase.RESOLVED, capsuleRefunded = refunded)
+                CatchPhase.RESOLVED
             }
+            _catch.value = session.copy(
+                phase = CatchPhase.SEALING,
+                settledPhase = settled,
+                succeeded = false,
+                capsuleRefunded = refunded,
+                wobbles = CatchMath.wobblesForMiss(roll, chance, CatchSession.MAX_WOBBLES),
+            )
         }
+    }
+
+    /** Called by the screen once the capsule has stopped rocking. */
+    fun finishSealing() {
+        val session = _catch.value ?: return
+        if (session.phase != CatchPhase.SEALING) return
+        _catch.value = session.copy(phase = session.settledPhase)
     }
 
     /** Moves on to the next attempt after a miss, keeping the same creature in front of us. */
@@ -325,6 +402,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             throwResult = null,
             spinTurns = 0f,
             capsuleRefunded = false,
+            wobbles = 0,
+            settledPhase = CatchPhase.RESOLVED,
         )
     }
 
@@ -341,12 +420,12 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     fun releaseOwned(ownedId: Long) = viewModelScope.launch { repository.releaseOwned(ownedId) }
 
-    fun feedLjos(ownedId: Long, amount: Int) {
+    fun feedPowder(ownedId: Long, amount: Int) {
         viewModelScope.launch {
-            if (repository.feedLjos(ownedId, amount)) {
-                announce("Ljós given, this one will grow faster now")
+            if (repository.feedPowder(ownedId, amount)) {
+                announce("Powder given, this one will grow faster now")
             } else {
-                announce("Not enough Ljós")
+                announce("Not enough Empower Powder")
             }
         }
     }
@@ -359,6 +438,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     fun setHaptics(value: Boolean) = viewModelScope.launch { container.settings.setHaptics(value) }
     fun setShowDistances(value: Boolean) = viewModelScope.launch { container.settings.setShowDistances(value) }
     fun setLargeTouchTargets(value: Boolean) = viewModelScope.launch { container.settings.setLargeTouchTargets(value) }
+    fun setQuickSpins(value: Boolean) = viewModelScope.launch { container.settings.setQuickSpins(value) }
+    fun setQuickCatches(value: Boolean) = viewModelScope.launch { container.settings.setQuickCatches(value) }
 
     fun exportTo(uri: Uri) {
         viewModelScope.launch {

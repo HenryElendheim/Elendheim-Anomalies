@@ -1,6 +1,8 @@
 package com.elendheim.anomalies.data.repo
 
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonNames
 
 /**
  * The whole save file, in the shape it is written to disk. Plain readable JSON on
@@ -16,9 +18,10 @@ data class BackupSnapshot(
     val stops: List<StopBackup> = emptyList(),
     val items: Map<String, Int> = emptyMap(),
 ) {
-    companion object { const val FORMAT_VERSION = 1 }
+    companion object { const val FORMAT_VERSION = 2 }
 }
 
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class PlayerBackup(
     val xp: Int = 0,
@@ -28,13 +31,16 @@ data class PlayerBackup(
     val shinies: Int = 0,
     val stopSpins: Int = 0,
     val metamorphoses: Int = 0,
-    val ljos: Int = 0,
+    // A version one file called this ljos, so both spellings are accepted and a backup
+    // written before the rename still restores its full amount.
+    @JsonNames("ljos") val powder: Int = 0,
     val perfectThrows: Int = 0,
     val places: List<String> = emptyList(),
     val pityCounter: Int = 0,
     val createdAt: Long = 0,
 )
 
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class OwnedBackup(
     val creatureId: String,
@@ -44,7 +50,7 @@ data class OwnedBackup(
     val statWard: Int = 0,
     val xp: Int = 0,
     val stage: Int = 0,
-    val ljosSpent: Int = 0,
+    @JsonNames("ljosSpent") val powderSpent: Int = 0,
     val caughtAt: Long = 0,
     val caughtLat: Double = 0.0,
     val caughtLng: Double = 0.0,
@@ -55,7 +61,6 @@ data class OwnedBackup(
 @Serializable
 data class StopBackup(
     val name: String,
-    val elendianName: String? = null,
     val lat: Double,
     val lng: Double,
     val radiusMeters: Int = 60,

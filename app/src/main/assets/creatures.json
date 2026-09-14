@@ -1,12 +1,12 @@
 {
-  "rosterVersion": 1,
+  "rosterVersion": 2,
   "creatures": [
     {
       "id": "vekkli", "name": "Vekkli", "family": "vekk", "rarity": "COMMON",
       "shape": "BOX", "color": "#F0997B", "eyeColor": "#4A1B0C", "power": "SCOUT",
       "biome": { "URBAN": 2.2, "WATER": 0.6, "GREEN": 1.0, "DRY": 1.1 },
       "time": { "DAY": 1.3, "DUSK": 1.0, "NIGHT": 0.6 },
-      "flavor": "Vekkli byr i steinveg ok vaknar naer ljósi.",
+      "flavor": "Lives inside walls and wakes up whenever a light goes on.",
       "spawnable": true, "nextFormId": "vekkald", "metamorphXp": 900
     },
     {
@@ -14,7 +14,7 @@
       "shape": "BOX", "color": "#E3714A", "eyeColor": "#3A1206", "power": "SCOUT",
       "biome": { "URBAN": 2.2, "WATER": 0.6, "GREEN": 1.0, "DRY": 1.1 },
       "time": { "DAY": 1.3, "DUSK": 1.0, "NIGHT": 0.6 },
-      "flavor": "Vaxit ór Vekkli, ok sér lengra en veggrinn nær.",
+      "flavor": "Grown out of a Vekkli, and now sees further than the wall reaches.",
       "spawnable": false, "nextFormId": null, "metamorphXp": 0
     },
     {
@@ -22,7 +22,7 @@
       "shape": "ROUND", "color": "#F4C0D1", "eyeColor": "#4B1528", "power": "LUCK",
       "biome": { "URBAN": 0.9, "WATER": 0.8, "GREEN": 2.0, "DRY": 0.7 },
       "time": { "DAY": 1.1, "DUSK": 1.4, "NIGHT": 0.9 },
-      "flavor": "Murra gengr i grasi ok telr stjörnur um kveld.",
+      "flavor": "Walks through long grass and counts the stars every evening.",
       "spawnable": true, "nextFormId": "murrveil", "metamorphXp": 1100
     },
     {
@@ -30,7 +30,7 @@
       "shape": "ROUND", "color": "#E4A0C8", "eyeColor": "#3B0E20", "power": "LUCK",
       "biome": { "URBAN": 0.9, "WATER": 0.8, "GREEN": 2.0, "DRY": 0.7 },
       "time": { "DAY": 1.0, "DUSK": 1.6, "NIGHT": 1.1 },
-      "flavor": "Sá er gengr med Murrveil finnr þat sem aðrir ganga fram hjá.",
+      "flavor": "Anyone walking with a Murrveil finds what everyone else walks past.",
       "spawnable": false, "nextFormId": null, "metamorphXp": 0
     },
     {
@@ -38,7 +38,7 @@
       "shape": "BLOB", "color": "#85B7EB", "eyeColor": "#042C53", "power": "TINKER",
       "biome": { "URBAN": 0.8, "WATER": 4.0, "GREEN": 1.0, "DRY": 0.5 },
       "time": { "DAY": 1.0, "DUSK": 1.2, "NIGHT": 1.0 },
-      "flavor": "Skalv liggr undir vatni ok heyrir hvat skipin segja.",
+      "flavor": "Rests under the water and listens to everything the boats say.",
       "spawnable": true, "nextFormId": null, "metamorphXp": 0
     },
     {
@@ -46,7 +46,7 @@
       "shape": "DIAMOND", "color": "#AFA9EC", "eyeColor": "#26215C", "power": "LURE",
       "biome": { "URBAN": 1.2, "WATER": 0.6, "GREEN": 0.9, "DRY": 2.4 },
       "time": { "DAY": 0.8, "DUSK": 1.2, "NIGHT": 1.6 },
-      "flavor": "Drov ferr þar sem vegrinn þrýtr ok bíðr eftir fœti.",
+      "flavor": "Goes where the road runs out, and waits there for a footstep.",
       "spawnable": true, "nextFormId": null, "metamorphXp": 0
     },
     {
@@ -54,7 +54,7 @@
       "shape": "WISP", "color": "#9FE1CB", "eyeColor": "#0D3326", "power": "SCOUT",
       "biome": { "URBAN": 1.0, "WATER": 1.2, "GREEN": 1.6, "DRY": 0.8 },
       "time": { "DAY": 0.5, "DUSK": 1.5, "NIGHT": 2.2 },
-      "flavor": "Ligg sefr um dag ok reikar um nótt milli húsa.",
+      "flavor": "Sleeps all day and drifts between the houses all night.",
       "spawnable": true, "nextFormId": null, "metamorphXp": 0
     },
     {
@@ -62,7 +62,7 @@
       "shape": "SPIKE", "color": "#E8A33D", "eyeColor": "#452200", "power": "TINKER",
       "biome": { "URBAN": 1.1, "WATER": 0.4, "GREEN": 0.8, "DRY": 2.8 },
       "time": { "DAY": 1.5, "DUSK": 1.0, "NIGHT": 0.6 },
-      "flavor": "Tannek etr stein ok skilr eftir sand einn.",
+      "flavor": "Eats stone and leaves nothing behind but sand.",
       "spawnable": true, "nextFormId": "tannvold", "metamorphXp": 1400
     },
     {
@@ -70,7 +70,7 @@
       "shape": "SPIKE", "color": "#C2410C", "eyeColor": "#2B1000", "power": "TINKER",
       "biome": { "URBAN": 1.1, "WATER": 0.4, "GREEN": 0.8, "DRY": 2.8 },
       "time": { "DAY": 1.5, "DUSK": 1.0, "NIGHT": 0.6 },
-      "flavor": "Þat sem Tannvold hefir brotit verðr ekki heilt aftr.",
+      "flavor": "Whatever a Tannvold has broken never goes back together.",
       "spawnable": false, "nextFormId": null, "metamorphXp": 0
     },
     {
@@ -78,7 +78,7 @@
       "shape": "CRESCENT", "color": "#C7D8E8", "eyeColor": "#1E3040", "power": "COURIER",
       "biome": { "URBAN": 2.4, "WATER": 1.0, "GREEN": 0.7, "DRY": 0.9 },
       "time": { "DAY": 1.2, "DUSK": 1.2, "NIGHT": 0.9 },
-      "flavor": "Nyss fylgir þeim sem bíða ok safnar því sem fellr niðr.",
+      "flavor": "Follows anyone who is waiting, and collects whatever they drop.",
       "spawnable": true, "nextFormId": null, "metamorphXp": 0
     },
     {
@@ -86,7 +86,7 @@
       "shape": "BLOB", "color": "#4FD1C5", "eyeColor": "#063A35", "power": "COURIER",
       "biome": { "URBAN": 0.7, "WATER": 3.6, "GREEN": 1.1, "DRY": 0.5 },
       "time": { "DAY": 1.2, "DUSK": 1.3, "NIGHT": 0.8 },
-      "flavor": "Brimla kemr med flóði ok ferr aftr med fjöru.",
+      "flavor": "Arrives with the tide and leaves again when it goes back out.",
       "spawnable": true, "nextFormId": null, "metamorphXp": 0
     },
     {
@@ -94,7 +94,7 @@
       "shape": "ROUND", "color": "#D98FB0", "eyeColor": "#421026", "power": "LURE",
       "biome": { "URBAN": 0.9, "WATER": 1.0, "GREEN": 2.3, "DRY": 0.8 },
       "time": { "DAY": 1.0, "DUSK": 1.5, "NIGHT": 1.0 },
-      "flavor": "Osk spyrr aldri hvert þú ferr, en gengr med þér samt.",
+      "flavor": "Never asks where you are going, and comes along anyway.",
       "spawnable": true, "nextFormId": "oskrun", "metamorphXp": 1600
     },
     {
@@ -102,7 +102,7 @@
       "shape": "ROUND", "color": "#BE5A8C", "eyeColor": "#2E0717", "power": "LURE",
       "biome": { "URBAN": 0.9, "WATER": 1.0, "GREEN": 2.3, "DRY": 0.8 },
       "time": { "DAY": 1.0, "DUSK": 1.7, "NIGHT": 1.2 },
-      "flavor": "Oskrun man hvern veg sem þú hefir gengit, ok kallar þá heim.",
+      "flavor": "Remembers every road you have walked, and calls them all home.",
       "spawnable": false, "nextFormId": null, "metamorphXp": 0
     },
     {
@@ -110,23 +110,23 @@
       "shape": "DIAMOND", "color": "#6EE7F0", "eyeColor": "#04343A", "power": "SCOUT",
       "biome": { "URBAN": 0.8, "WATER": 3.2, "GREEN": 1.0, "DRY": 0.6 },
       "time": { "DAY": 0.9, "DUSK": 1.4, "NIGHT": 1.3 },
-      "flavor": "Fjard rís þar sem tvau vötn mœtask ok hvárt neitar öðru.",
+      "flavor": "Rises where two waters meet and neither one gives way.",
       "spawnable": true, "nextFormId": null, "metamorphXp": 0
     },
     {
-      "id": "gloa", "name": "Glóa", "family": "gloa", "rarity": "RARE",
+      "id": "gloa", "name": "Gloa", "family": "gloa", "rarity": "RARE",
       "shape": "STAR", "color": "#FBBF24", "eyeColor": "#4A2A00", "power": "LUCK",
       "biome": { "URBAN": 1.3, "WATER": 0.9, "GREEN": 1.2, "DRY": 1.2 },
       "time": { "DAY": 0.4, "DUSK": 1.4, "NIGHT": 2.6 },
-      "flavor": "Glóa brennr ekki, hon man einungis hvat ljós var.",
+      "flavor": "Does not burn. It only remembers what being light was like.",
       "spawnable": true, "nextFormId": "gloasol", "metamorphXp": 2000
     },
     {
-      "id": "gloasol", "name": "Glóasól", "family": "gloa", "rarity": "EPIC",
+      "id": "gloasol", "name": "Gloasol", "family": "gloa", "rarity": "EPIC",
       "shape": "STAR", "color": "#FDE047", "eyeColor": "#3A2000", "power": "LUCK",
       "biome": { "URBAN": 1.3, "WATER": 0.9, "GREEN": 1.2, "DRY": 1.2 },
       "time": { "DAY": 0.6, "DUSK": 1.6, "NIGHT": 2.4 },
-      "flavor": "Glóasól heldr einni nótt ljósi svá lengi sem þú horfir.",
+      "flavor": "Holds one night in the light for exactly as long as you keep looking.",
       "spawnable": false, "nextFormId": null, "metamorphXp": 0
     },
     {
@@ -134,7 +134,7 @@
       "shape": "BOX", "color": "#8FA3B8", "eyeColor": "#182430", "power": "COURIER",
       "biome": { "URBAN": 2.6, "WATER": 0.8, "GREEN": 0.7, "DRY": 1.0 },
       "time": { "DAY": 1.3, "DUSK": 1.0, "NIGHT": 0.8 },
-      "flavor": "Kvern telr hvern vagn sem ferr, ok gleymir engum.",
+      "flavor": "Counts every train that leaves, and forgets none of them.",
       "spawnable": true, "nextFormId": null, "metamorphXp": 0
     },
     {
@@ -142,15 +142,15 @@
       "shape": "SPIKE", "color": "#A3C76D", "eyeColor": "#24380C", "power": "TINKER",
       "biome": { "URBAN": 0.8, "WATER": 1.0, "GREEN": 2.5, "DRY": 0.9 },
       "time": { "DAY": 1.4, "DUSK": 1.1, "NIGHT": 0.6 },
-      "flavor": "Rask hleypr á undan þér ok bíðr við hverja beygju.",
+      "flavor": "Runs on ahead of you and waits at every corner.",
       "spawnable": true, "nextFormId": null, "metamorphXp": 0
     },
     {
-      "id": "vordr", "name": "Vörðr", "family": "vord", "rarity": "LEGENDARY",
+      "id": "vordr", "name": "Vordr", "family": "vord", "rarity": "LEGENDARY",
       "shape": "CRESCENT", "color": "#B794F6", "eyeColor": "#2A1454", "power": "LURE",
       "biome": { "URBAN": 1.0, "WATER": 1.0, "GREEN": 1.0, "DRY": 1.0 },
       "time": { "DAY": 0.8, "DUSK": 1.5, "NIGHT": 1.5 },
-      "flavor": "Vörðr stendr þar sem enginn hefir beðit hann standa.",
+      "flavor": "Stands guard in places nobody ever asked it to guard.",
       "spawnable": true, "nextFormId": null, "metamorphXp": 0
     },
     {
@@ -158,7 +158,7 @@
       "shape": "STAR", "color": "#F0F4C3", "eyeColor": "#3C4210", "power": "LUCK",
       "biome": { "URBAN": 1.0, "WATER": 1.0, "GREEN": 1.0, "DRY": 1.0 },
       "time": { "DAY": 1.0, "DUSK": 1.0, "NIGHT": 1.0 },
-      "flavor": "Hylde er ekki fundin. Hon leyfir at vera sén.",
+      "flavor": "Is never found. It only ever allows itself to be seen.",
       "spawnable": true, "nextFormId": null, "metamorphXp": 0
     }
   ]

@@ -41,6 +41,7 @@ import com.elendheim.anomalies.ui.screens.CodexScreen
 import com.elendheim.anomalies.ui.screens.ItemsScreen
 import com.elendheim.anomalies.ui.screens.MapScreen
 import com.elendheim.anomalies.ui.screens.ProfileScreen
+import com.elendheim.anomalies.ui.screens.SpinOverlay
 import com.elendheim.anomalies.ui.screens.SettingsScreen
 import com.elendheim.anomalies.ui.screens.StopsScreen
 import com.elendheim.anomalies.ui.theme.theme
@@ -62,6 +63,8 @@ fun AppRoot(viewModel: GameViewModel) {
     val navController = rememberNavController()
     val state by viewModel.state.collectAsStateWithLifecycle()
     val session by viewModel.catchSession.collectAsStateWithLifecycle()
+    val spin by viewModel.spinSession.collectAsStateWithLifecycle()
+    val draft by viewModel.stopDraft.collectAsStateWithLifecycle()
     val message by viewModel.message.collectAsStateWithLifecycle()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
@@ -80,7 +83,14 @@ fun AppRoot(viewModel: GameViewModel) {
                 ) {
                     composable(Destination.MAP.route) { MapScreen(viewModel) }
                     composable(Destination.CODEX.route) { CodexScreen(viewModel) }
-                    composable(Destination.STOPS.route) { StopsScreen(viewModel) }
+                    composable(Destination.STOPS.route) {
+                        StopsScreen(viewModel) {
+                            // Placing a stop happens on the map, so the plus button opens
+                            // the draft and then sends you there to choose the spot.
+                            viewModel.beginPlacement()
+                            navController.switchTo(Destination.MAP)
+                        }
+                    }
                     composable(Destination.ITEMS.route) { ItemsScreen(viewModel) }
                     composable(Destination.PROFILE.route) {
                         ProfileScreen(viewModel, onOpenSettings = { navController.navigate(SETTINGS_ROUTE) })
@@ -90,7 +100,7 @@ fun AppRoot(viewModel: GameViewModel) {
                     }
                 }
             }
-            if (currentRoute != SETTINGS_ROUTE) {
+            if (currentRoute != SETTINGS_ROUTE && draft == null) {
                 BottomBar(
                     current = currentRoute,
                     largeTargets = state.settings.largeTouchTargets,
@@ -109,12 +119,20 @@ fun AppRoot(viewModel: GameViewModel) {
             session?.let { CatchScreen(viewModel, it) }
         }
 
+        AnimatedVisibility(
+            visible = spin != null,
+            enter = fadeIn(),
+            exit = fadeOut(),
+        ) {
+            spin?.let { SpinOverlay(viewModel, it) }
+        }
+
         MessageBanner(message) { viewModel.consumeMessage() }
     }
 }
 
 /** Tapping a tab always returns to the top of that tab rather than stacking copies. */
-private fun NavHostController.switchTo(destination: Destination) {
+internal fun NavHostController.switchTo(destination: Destination) {
     navigate(destination.route) {
         popUpTo(graph.findStartDestination().id) { saveState = true }
         launchSingleTop = true

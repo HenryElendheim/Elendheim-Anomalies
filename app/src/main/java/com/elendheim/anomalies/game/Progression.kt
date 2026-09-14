@@ -47,8 +47,8 @@ object Progression {
     /** Bonus player XP a Spark capsule adds on top of the catch. */
     const val SPARK_BONUS_XP = 60
 
-    /** Ljós granted by an Essence capsule catch. Ljós makes a companion gain XP faster. */
-    const val ESSENCE_LJOS = 3
+    /** Empower Powder granted by an Essence capsule catch. Powder speeds a companion up. */
+    const val ESSENCE_POWDER = 3
 
     /**
      * Companion XP earned from distance. Travel is deliberately uncapped, which means a
@@ -62,11 +62,11 @@ object Progression {
     /** Companion XP for spinning a stop while it was active. */
     const val COMPANION_SPIN_XP = 8
 
-    /** Each point of Ljós spent raises the companion XP rate by this much. */
-    const val LJOS_RATE_STEP = 0.05
+    /** Each measure of Empower Powder raises the companion XP rate by this much. */
+    const val POWDER_RATE_STEP = 0.05
 
-    /** The rate multiplier a stored Ljós investment produces, capped so it stays a boost. */
-    fun ljosRate(spent: Int): Double = (1.0 + spent * LJOS_RATE_STEP).coerceAtMost(3.0)
+    /** The rate multiplier stored powder produces, capped so it stays a boost. */
+    fun powderRate(spent: Int): Double = (1.0 + spent * POWDER_RATE_STEP).coerceAtMost(3.0)
 
     const val MAX_PLAYER_LEVEL = 60
 }

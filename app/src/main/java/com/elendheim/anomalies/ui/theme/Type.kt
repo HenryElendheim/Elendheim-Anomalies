@@ -38,7 +38,7 @@ fun elendheimTypography(scale: Float, colors: ElendheimColors): Typography {
     )
 }
 
-/** Flavor text is set in a serif face so Elendian reads as a different voice. */
+/** Flavor text is set in a serif face so it reads as a different voice. */
 fun serifFlavor(scale: Float, colors: ElendheimColors) = TextStyle(
     fontSize = (11.5f * scale).sp,
     lineHeight = (17f * scale).sp,

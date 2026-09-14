@@ -35,6 +35,18 @@ enum class TimeBand(val label: String) {
 }
 
 /**
+ * How special an item is when it drops. The reveal after a spin gets louder the further
+ * down this list it goes, which is what makes a Prime falling out of a stop feel like
+ * something rather than just another line in a list.
+ */
+enum class ItemRarity(val label: String) {
+    STANDARD("standard"),
+    UNCOMMON("uncommon"),
+    RARE("rare"),
+    EPIC("epic"),
+}
+
+/**
  * Capsules split on two axes. [catchMultiplier] above one makes the throw land more
  * often, and a non null [bonus] pays out something extra when the throw succeeds.
  */
@@ -44,12 +56,13 @@ enum class CapsuleType(
     val catchMultiplier: Double,
     val bonus: CapsuleBonus?,
     val colorHex: Long,
+    val rarity: ItemRarity,
 ) {
-    CAPTURE("Capture capsule", "standard catch rate", 1.0, null, 0xFF0AF5C8),
-    ENHANCED("Enhanced capsule", "higher catch rate", 1.45, null, 0xFFAFA9EC),
-    PRIME("Prime capsule", "highest catch rate", 2.1, null, 0xFF85B7EB),
-    SPARK("Spark capsule", "standard rate, bonus player XP", 1.0, CapsuleBonus.PLAYER_XP, 0xFFFAC775),
-    ESSENCE("Essence capsule", "standard rate, bonus Ljós", 1.0, CapsuleBonus.LJOS, 0xFFF0997B);
+    CAPTURE("Capture capsule", "standard catch rate", 1.0, null, 0xFF0AF5C8, ItemRarity.STANDARD),
+    SPARK("Spark capsule", "standard rate, bonus player XP", 1.0, CapsuleBonus.PLAYER_XP, 0xFFFAC775, ItemRarity.UNCOMMON),
+    ESSENCE("Essence capsule", "standard rate, bonus Empower Powder", 1.0, CapsuleBonus.POWDER, 0xFFF0997B, ItemRarity.UNCOMMON),
+    ENHANCED("Enhanced capsule", "higher catch rate", 1.45, null, 0xFFAFA9EC, ItemRarity.RARE),
+    PRIME("Prime capsule", "highest catch rate", 2.1, null, 0xFF85B7EB, ItemRarity.EPIC);
 
     companion object {
         /** Parsing never throws, which means a corrupt backup file degrades instead of crashing. */
@@ -58,7 +71,7 @@ enum class CapsuleType(
 }
 
 /** What a specialty capsule hands over on a successful catch. */
-enum class CapsuleBonus { PLAYER_XP, LJOS }
+enum class CapsuleBonus { PLAYER_XP, POWDER }
 
 /**
  * What the active companion changes about the world while it is out. Powers get

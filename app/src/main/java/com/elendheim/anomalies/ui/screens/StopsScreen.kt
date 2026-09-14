@@ -1,62 +1,87 @@
 package com.elendheim.anomalies.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.elendheim.anomalies.data.db.StopEntity
 import com.elendheim.anomalies.game.Geo
-import com.elendheim.anomalies.ui.common.ElCard
 import com.elendheim.anomalies.ui.common.EmptyState
 import com.elendheim.anomalies.ui.common.GhostButton
 import com.elendheim.anomalies.ui.common.Glyph
 import com.elendheim.anomalies.ui.common.GlyphIcon
+import com.elendheim.anomalies.ui.common.MeterBar
 import com.elendheim.anomalies.ui.common.PrimaryButton
 import com.elendheim.anomalies.ui.common.ScreenHeader
 import com.elendheim.anomalies.ui.common.Sizes
+import com.elendheim.anomalies.ui.common.dialogFieldColors
+import com.elendheim.anomalies.ui.common.dialogSliderColors
 import com.elendheim.anomalies.ui.game.GameViewModel
 import com.elendheim.anomalies.ui.theme.theme
+import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import kotlin.math.roundToInt
 
-/** Places the player put down by hand, with the lifetime numbers for each one. */
+/**
+ * The stops, sorted so anything ready to spin is a large square at the top and anything
+ * counting down is a small grey strip underneath. The shape alone tells you what is
+ * worth walking to without reading a single number.
+ */
 @Composable
-fun StopsScreen(viewModel: GameViewModel) {
+fun StopsScreen(viewModel: GameViewModel, onPlaceStop: () -> Unit) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var editing by remember { mutableStateOf<StopEntity?>(null) }
-    var placing by remember { mutableStateOf(false) }
     val dateFormat = remember { SimpleDateFormat("d MMM", Locale.getDefault()) }
+
+    // A once a second tick so every countdown on screen runs down live.
+    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            now = System.currentTimeMillis()
+            delay(1000)
+        }
+    }
+
+    val ready = state.stops.filter { it.isReadyAt(now) }
+    val waiting = state.stops.filterNot { it.isReadyAt(now) }
 
     Column(
         Modifier
@@ -66,17 +91,17 @@ fun StopsScreen(viewModel: GameViewModel) {
     ) {
         ScreenHeader(
             title = "Stops",
-            subtitle = "${state.stops.size} placed, ${state.stops.sumOf { it.spins }} total spins",
+            subtitle = "${state.stops.size} placed, ${ready.size} ready, ${state.stops.sumOf { it.spins }} total spins",
             trailing = {
                 Box(
                     Modifier
                         .size(34.dp)
                         .clip(CircleShape)
                         .background(theme.surface)
-                        .clickable { placing = true },
+                        .clickable { onPlaceStop() },
                     contentAlignment = Alignment.Center,
                 ) {
-                    GlyphIcon(Glyph.PLUS, theme.accent, 18.dp, contentDescription = "Place a stop here")
+                    GlyphIcon(Glyph.PLUS, theme.accent, 18.dp, contentDescription = "Place a new stop")
                 }
             },
         )
@@ -88,23 +113,41 @@ fun StopsScreen(viewModel: GameViewModel) {
                     "Each one hands over capsules every few minutes.",
                 modifier = Modifier.weight(1f),
             )
+            Column(Modifier.padding(Sizes.gutter)) {
+                PrimaryButton("Place your first stop") { onPlaceStop() }
+            }
         } else {
-            LazyColumn(
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(2),
                 modifier = Modifier.weight(1f),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                    start = Sizes.gutter, end = Sizes.gutter, bottom = Sizes.gutter,
-                ),
+                contentPadding = PaddingValues(start = Sizes.gutter, end = Sizes.gutter, bottom = Sizes.gutter),
+                horizontalArrangement = Arrangement.spacedBy(Sizes.gap),
                 verticalArrangement = Arrangement.spacedBy(Sizes.gap),
             ) {
-                items(state.stops, key = { it.id }) { stop ->
-                    StopCard(
+                items(ready, key = { "ready-${it.id}" }) { stop ->
+                    ReadyStopTile(
                         stop = stop,
-                        distanceMeters = state.fix?.let {
-                            Geo.distanceMeters(it.lat, it.lng, stop.lat, stop.lng)
-                        },
+                        distanceMeters = state.fix?.let { Geo.distanceMeters(it.lat, it.lng, stop.lat, stop.lng) },
                         showDistance = state.settings.showDistances,
-                        dateFormat = dateFormat,
                         onSpin = { viewModel.spinStop(stop.id) },
+                        onEdit = { editing = stop },
+                    )
+                }
+                if (waiting.isNotEmpty()) {
+                    item(span = { GridItemSpan(maxLineSpan) }) {
+                        Text(
+                            "Counting down",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = theme.textDim,
+                            modifier = Modifier.padding(top = 12.dp, bottom = 2.dp),
+                        )
+                    }
+                }
+                items(waiting, span = { GridItemSpan(maxLineSpan) }, key = { "waiting-${it.id}" }) { stop ->
+                    WaitingStopStrip(
+                        stop = stop,
+                        now = now,
+                        dateFormat = dateFormat,
                         onEdit = { editing = stop },
                     )
                 }
@@ -112,144 +155,176 @@ fun StopsScreen(viewModel: GameViewModel) {
         }
     }
 
-    if (placing) {
-        StopDialog(
-            title = "Place a stop here",
-            initial = null,
-            confirmLabel = "Place",
-            onDismiss = { placing = false },
-            onConfirm = { name, elendian, radius, cooldown ->
-                viewModel.placeStop(name, elendian, radius, cooldown)
-                placing = false
-            },
-        )
-    }
-
     editing?.let { stop ->
-        StopDialog(
-            title = stop.name,
-            initial = stop,
-            confirmLabel = "Save",
+        EditStopDialog(
+            stop = stop,
             onDelete = {
                 viewModel.deleteStop(stop.id)
                 editing = null
             },
             onDismiss = { editing = null },
-            onConfirm = { name, elendian, radius, cooldown ->
-                viewModel.updateStop(
-                    stop.copy(
-                        name = name,
-                        elendianName = elendian,
-                        radiusMeters = radius,
-                        cooldownMinutes = cooldown,
-                    )
-                )
+            onConfirm = { name, radius, cooldown ->
+                viewModel.updateStop(stop.copy(name = name, radiusMeters = radius, cooldownMinutes = cooldown))
                 editing = null
             },
         )
     }
 }
 
+/** True when the cooldown has run out and the stop can be spun again. */
+private fun StopEntity.isReadyAt(now: Long): Boolean =
+    now - lastSpunAt >= cooldownMinutes * 60_000L
+
+/** Milliseconds still to wait, never below zero. */
+private fun StopEntity.remainingAt(now: Long): Long =
+    (cooldownMinutes * 60_000L - (now - lastSpunAt)).coerceAtLeast(0L)
+
+/** A ready stop: a full square, lit in the accent colour, with the spin button on it. */
 @Composable
-private fun StopCard(
+private fun ReadyStopTile(
     stop: StopEntity,
     distanceMeters: Double?,
     showDistance: Boolean,
-    dateFormat: SimpleDateFormat,
     onSpin: () -> Unit,
     onEdit: () -> Unit,
 ) {
-    val now = System.currentTimeMillis()
-    val readyIn = stop.cooldownMinutes * 60_000L - (now - stop.lastSpunAt)
-    val ready = readyIn <= 0
     val inRange = distanceMeters == null || distanceMeters <= stop.radiusMeters
-
-    ElCard(onClick = onEdit) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text(stop.name, style = MaterialTheme.typography.titleSmall, color = theme.text)
-                stop.elendianName?.let {
-                    Text(it, style = MaterialTheme.typography.labelSmall, color = theme.textMid)
-                }
-            }
-            Text(
-                if (ready) "ready" else "${(readyIn / 60_000L) + 1} min",
-                style = MaterialTheme.typography.labelMedium,
-                color = if (ready) theme.accent else theme.gold,
-            )
-        }
-        Spacer(Modifier.height(4.dp))
+    val shape = RoundedCornerShape(Sizes.corner)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .aspectRatio(1f)
+            .clip(shape)
+            .background(theme.card)
+            .border(Sizes.hairline, theme.accent, shape)
+            .clickable(onClick = onEdit)
+            .padding(12.dp),
+    ) {
         Text(
-            buildString {
-                append("created ")
-                append(dateFormat.format(Date(stop.createdAt)))
-                append(", ")
-                append(stop.radiusMeters)
-                append(" m radius")
-                if (showDistance && distanceMeters != null) {
-                    append(", ")
-                    append(Geo.format(distanceMeters))
-                    append(" away")
-                }
-            },
-            style = MaterialTheme.typography.labelSmall,
-            color = theme.textDim,
+            stop.name,
+            style = MaterialTheme.typography.titleSmall,
+            color = theme.text,
+            maxLines = 2,
         )
         Spacer(Modifier.height(3.dp))
+        Text("ready", style = MaterialTheme.typography.labelMedium, color = theme.accent)
+
+        Spacer(Modifier.weight(1f))
+
         Text(
-            "${stop.spins} spins, ${stop.itemsEarned} items, ${stop.bonusSpawns} bonus spawns",
+            "${stop.spins} spins",
             style = MaterialTheme.typography.labelSmall,
             color = theme.textMid,
         )
-        Spacer(Modifier.height(10.dp))
+        Text(
+            "${stop.itemsEarned} items",
+            style = MaterialTheme.typography.labelSmall,
+            color = theme.textDim,
+        )
+        if (showDistance && distanceMeters != null) {
+            Text(
+                Geo.format(distanceMeters),
+                style = MaterialTheme.typography.labelSmall,
+                color = if (inRange) theme.accent else theme.textDim,
+            )
+        }
+        Spacer(Modifier.height(8.dp))
         PrimaryButton(
-            text = when {
-                !inRange -> "Too far away"
-                !ready -> "On cooldown"
-                else -> "Spin"
-            },
-            enabled = ready && inRange,
+            text = if (inRange) "Spin" else "Too far",
+            enabled = inRange,
             onClick = onSpin,
         )
     }
 }
 
-/** One dialog used for both placing and editing, so the two can never drift apart. */
+/** A waiting stop: a short grey strip carrying the countdown and a bar that drains. */
 @Composable
-private fun StopDialog(
-    title: String,
-    initial: StopEntity?,
-    confirmLabel: String,
-    onDismiss: () -> Unit,
-    onConfirm: (String, String?, Int, Int) -> Unit,
-    onDelete: (() -> Unit)? = null,
+private fun WaitingStopStrip(
+    stop: StopEntity,
+    now: Long,
+    dateFormat: SimpleDateFormat,
+    onEdit: () -> Unit,
 ) {
-    var name by remember { mutableStateOf(initial?.name.orEmpty()) }
-    var elendian by remember { mutableStateOf(initial?.elendianName.orEmpty()) }
-    var radius by remember { mutableStateOf((initial?.radiusMeters ?: 60).toFloat()) }
-    var cooldown by remember { mutableStateOf((initial?.cooldownMinutes ?: 5).toFloat()) }
+    val remaining = stop.remainingAt(now)
+    val total = (stop.cooldownMinutes * 60_000L).coerceAtLeast(1L)
+    // Everything here is dimmed on purpose, so an unavailable stop reads as switched off.
+    val dim = theme.textDim
+    val shape = RoundedCornerShape(Sizes.cornerSmall)
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(theme.surface)
+            .border(Sizes.hairline, theme.borderDim, shape)
+            .clickable(onClick = onEdit)
+            .padding(horizontal = 12.dp, vertical = 9.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(stop.name, style = MaterialTheme.typography.titleSmall, color = dim, maxLines = 1)
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    "${stop.spins} spins, placed ${dateFormat.format(Date(stop.createdAt))}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = theme.borderDim,
+                )
+            }
+            Spacer(Modifier.width(10.dp))
+            Text(
+                formatCountdown(remaining),
+                style = MaterialTheme.typography.titleMedium,
+                color = dim,
+                textAlign = TextAlign.End,
+            )
+        }
+        Spacer(Modifier.height(7.dp))
+        MeterBar(
+            progress = 1f - (remaining.toFloat() / total.toFloat()),
+            color = dim,
+            track = theme.borderDim,
+            height = 3.dp,
+            label = "${stop.name} ready in ${formatCountdown(remaining)}",
+        )
+    }
+}
+
+/** Minutes and seconds while it is close, whole minutes while it is not. */
+private fun formatCountdown(millis: Long): String {
+    val totalSeconds = (millis / 1000).toInt()
+    val minutes = totalSeconds / 60
+    val seconds = totalSeconds % 60
+    return if (minutes >= 60) {
+        "${minutes / 60}h ${minutes % 60}m"
+    } else {
+        String.format(Locale.US, "%d:%02d", minutes, seconds)
+    }
+}
+
+/** Renaming and retuning an existing stop. Placement itself happens on the map. */
+@Composable
+private fun EditStopDialog(
+    stop: StopEntity,
+    onDismiss: () -> Unit,
+    onConfirm: (String, Int, Int) -> Unit,
+    onDelete: () -> Unit,
+) {
+    var name by remember { mutableStateOf(stop.name) }
+    var radius by remember { mutableStateOf(stop.radiusMeters.toFloat()) }
+    var cooldown by remember { mutableStateOf(stop.cooldownMinutes.toFloat()) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = theme.card,
         titleContentColor = theme.text,
         textContentColor = theme.textMid,
-        title = { Text(title, style = MaterialTheme.typography.titleMedium, color = theme.text) },
+        title = { Text(stop.name, style = MaterialTheme.typography.titleMedium, color = theme.text) },
         text = {
             Column {
-                OutlinedTextField(
+                androidx.compose.material3.OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
                     label = { Text("Name") },
-                    singleLine = true,
-                    colors = dialogFieldColors(),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Spacer(Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = elendian,
-                    onValueChange = { elendian = it },
-                    label = { Text("Elendian name, optional") },
                     singleLine = true,
                     colors = dialogFieldColors(),
                     modifier = Modifier.fillMaxWidth(),
@@ -260,7 +335,7 @@ private fun StopDialog(
                     style = MaterialTheme.typography.labelMedium,
                     color = theme.textMid,
                 )
-                Slider(
+                androidx.compose.material3.Slider(
                     value = radius,
                     onValueChange = { radius = it },
                     valueRange = 25f..250f,
@@ -271,62 +346,32 @@ private fun StopDialog(
                     style = MaterialTheme.typography.labelMedium,
                     color = theme.textMid,
                 )
-                Slider(
+                androidx.compose.material3.Slider(
                     value = cooldown,
                     onValueChange = { cooldown = it },
                     valueRange = 1f..60f,
                     colors = dialogSliderColors(),
                 )
-                if (onDelete != null) {
-                    Spacer(Modifier.height(10.dp))
-                    GhostButton("Delete this stop", tint = theme.danger) { onDelete() }
-                }
+                Spacer(Modifier.height(10.dp))
+                GhostButton("Delete this stop", tint = theme.danger) { onDelete() }
             }
         },
         confirmButton = {
-            Text(
-                confirmLabel,
-                style = MaterialTheme.typography.titleSmall,
-                color = theme.accent,
-                modifier = Modifier
-                    .clickable {
-                        onConfirm(
-                            name.ifBlank { "Stop" },
-                            elendian.takeIf { it.isNotBlank() },
-                            radius.roundToInt(),
-                            cooldown.roundToInt(),
-                        )
-                    }
-                    .padding(10.dp),
-            )
+            DialogAction("Save", theme.accent) {
+                onConfirm(name.ifBlank { "Stop" }, radius.roundToInt(), cooldown.roundToInt())
+            }
         },
-        dismissButton = {
-            Text(
-                "Cancel",
-                style = MaterialTheme.typography.titleSmall,
-                color = theme.textDim,
-                modifier = Modifier.clickable { onDismiss() }.padding(10.dp),
-            )
-        },
+        dismissButton = { DialogAction("Cancel", theme.textDim, onDismiss) },
     )
 }
 
+/** The plain text buttons both dialogs use, so they always look the same. */
 @Composable
-private fun dialogFieldColors() = TextFieldDefaults.colors(
-    focusedContainerColor = theme.surface,
-    unfocusedContainerColor = theme.surface,
-    focusedTextColor = theme.text,
-    unfocusedTextColor = theme.text,
-    focusedIndicatorColor = theme.accent,
-    unfocusedIndicatorColor = theme.border,
-    focusedLabelColor = theme.accent,
-    unfocusedLabelColor = theme.textDim,
-    cursorColor = theme.accent,
-)
-
-@Composable
-private fun dialogSliderColors() = SliderDefaults.colors(
-    thumbColor = theme.accent,
-    activeTrackColor = theme.accent,
-    inactiveTrackColor = theme.borderDim,
-)
+internal fun DialogAction(label: String, tint: Color, onClick: () -> Unit) {
+    Text(
+        label,
+        style = MaterialTheme.typography.titleSmall,
+        color = tint,
+        modifier = Modifier.clickable(onClick = onClick).padding(10.dp),
+    )
+}

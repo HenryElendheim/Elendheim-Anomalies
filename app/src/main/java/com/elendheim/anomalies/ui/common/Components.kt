@@ -17,9 +17,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -301,6 +303,28 @@ fun EmptyState(title: String, message: String, modifier: Modifier = Modifier) {
         Text(message, style = MaterialTheme.typography.bodySmall, color = theme.textDim, textAlign = TextAlign.Center)
     }
 }
+
+/** Text field colours, shared so every field in the app matches. */
+@Composable
+fun dialogFieldColors() = TextFieldDefaults.colors(
+    focusedContainerColor = theme.surface,
+    unfocusedContainerColor = theme.surface,
+    focusedTextColor = theme.text,
+    unfocusedTextColor = theme.text,
+    focusedIndicatorColor = theme.accent,
+    unfocusedIndicatorColor = theme.border,
+    focusedLabelColor = theme.accent,
+    unfocusedLabelColor = theme.textDim,
+    cursorColor = theme.accent,
+)
+
+/** Slider colours, shared for the same reason. */
+@Composable
+fun dialogSliderColors() = SliderDefaults.colors(
+    thumbColor = theme.accent,
+    activeTrackColor = theme.accent,
+    inactiveTrackColor = theme.borderDim,
+)
 
 /** A coloured dot used in legends and item rows. */
 @Composable

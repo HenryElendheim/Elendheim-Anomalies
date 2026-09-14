@@ -30,7 +30,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.elendheim.anomalies.game.Geo
 import com.elendheim.anomalies.game.Progression
 import com.elendheim.anomalies.ui.common.ElCard
-import com.elendheim.anomalies.ui.common.GhostButton
+import com.elendheim.anomalies.ui.common.ActionRow
 import com.elendheim.anomalies.ui.common.MeterBar
 import com.elendheim.anomalies.ui.common.ScreenHeader
 import com.elendheim.anomalies.ui.common.Sizes
@@ -98,7 +98,7 @@ fun ProfileScreen(viewModel: GameViewModel, onOpenSettings: () -> Unit) {
             "Stop spins" to player.stopSpins.toString(),
             "Metamorphoses" to player.metamorphoses.toString(),
             "Creatures held" to state.owned.size.toString(),
-            "Ljós" to player.ljos.toString(),
+            "Powder" to player.powder.toString(),
         )
         Column(
             modifier = Modifier.padding(horizontal = Sizes.gutter),
@@ -138,7 +138,14 @@ fun ProfileScreen(viewModel: GameViewModel, onOpenSettings: () -> Unit) {
                 )
             }
             Spacer(Modifier.height(Sizes.gap))
-            GhostButton("Settings") { onOpenSettings() }
+            ElCard(borderColor = theme.borderDim, onClick = onOpenSettings, contentPadding = 0.dp) {
+                ActionRow(
+                    title = "Settings",
+                    description = "Text size, contrast, motion, animations, export and import",
+                    trailing = "open",
+                    onClick = onOpenSettings,
+                )
+            }
             Spacer(Modifier.height(Sizes.gutter))
         }
     }

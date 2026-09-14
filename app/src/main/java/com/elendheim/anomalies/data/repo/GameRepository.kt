@@ -12,13 +12,24 @@ data class SpinReward(
     val items: Map<CapsuleType, Int>,
     val bonusSpawn: Boolean,
     val playerXp: Int,
-)
+) {
+    /** Drops in the order they are revealed: plainest first, so the best one lands last. */
+    val revealOrder: List<Pair<CapsuleType, Int>>
+        get() = items.entries
+            .sortedBy { it.key.rarity.ordinal }
+            .map { it.key to it.value }
+
+    /** The best thing in the haul, which decides how loud the reveal gets. */
+    val best: CapsuleType? get() = items.keys.maxByOrNull { it.rarity.ordinal }
+
+    val totalItems: Int get() = items.values.sum()
+}
 
 /** What landing a catch produced, so the result card can report all of it at once. */
 data class CatchOutcome(
     val owned: OwnedCreatureEntity,
     val playerXp: Int,
-    val ljosGained: Int,
+    val powderGained: Int,
     val levelledUpTo: Int?,
     val isNewToCodex: Boolean,
 )
@@ -71,7 +82,7 @@ interface GameRepository {
     suspend fun releaseOwned(ownedId: Long)
     suspend fun addDistance(meters: Double): CompanionProgress
     suspend fun addCompanionXp(amount: Int): CompanionProgress
-    suspend fun feedLjos(ownedId: Long, amount: Int): Boolean
+    suspend fun feedPowder(ownedId: Long, amount: Int): Boolean
 
     suspend fun recentCatches(limit: Int): List<CatchLogEntity>
     suspend fun snapshot(): BackupSnapshot

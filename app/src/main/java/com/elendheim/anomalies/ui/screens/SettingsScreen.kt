@@ -126,8 +126,8 @@ fun SettingsScreen(viewModel: GameViewModel, onBack: () -> Unit) {
 
         ToggleRow(
             title = "Reduce motion",
-            description = "Stops the splash fade, the idle bob and the shrinking ring. " +
-                "The catch is then scored on the flick alone.",
+            description = "Stops the splash fade, the idle bob, the shrinking ring, the spin " +
+                "and the rocking capsule. The catch is then scored on the flick alone.",
             checked = settings.reduceMotion,
             largeTargets = large,
             onCheckedChange = { viewModel.setReduceMotion(it) },
@@ -145,6 +145,23 @@ fun SettingsScreen(viewModel: GameViewModel, onBack: () -> Unit) {
             checked = settings.hapticsEnabled,
             largeTargets = large,
             onCheckedChange = { viewModel.setHaptics(it) },
+        )
+
+        SectionLabel("Animations")
+
+        ToggleRow(
+            title = "Quick spins",
+            description = "Skips the spin and hands the drops over at once",
+            checked = settings.quickSpins,
+            largeTargets = large,
+            onCheckedChange = { viewModel.setQuickSpins(it) },
+        )
+        ToggleRow(
+            title = "Quick catches",
+            description = "Skips the rocking capsule and goes straight to the result",
+            checked = settings.quickCatches,
+            largeTargets = large,
+            onCheckedChange = { viewModel.setQuickCatches(it) },
         )
 
         SectionLabel("Map")
