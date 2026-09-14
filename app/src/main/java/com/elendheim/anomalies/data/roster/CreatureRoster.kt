@@ -28,6 +28,9 @@ class CreatureRoster private constructor(val all: List<CreatureDef>) {
     companion object {
         private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
+        /** Builds a roster straight from a list, which is what the tests use. */
+        fun of(creatures: List<CreatureDef>): CreatureRoster = CreatureRoster(creatures)
+
         @Volatile private var instance: CreatureRoster? = null
 
         /** Loaded once per process and shared from then on. */

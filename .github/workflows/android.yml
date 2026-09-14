@@ -33,6 +33,9 @@ jobs:
           echo "name=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
 
+      - name: Run the unit tests
+        run: ./gradlew --no-daemon testReleaseUnitTest
+
       - name: Build the release APK
         run: ./gradlew --no-daemon assembleRelease
 

@@ -80,10 +80,10 @@ interface ItemDao {
 @Dao
 interface PlayerDao {
     @Query("SELECT * FROM player WHERE id = :id")
-    fun observe(id: Int = PlayerStateEntity.SINGLETON_ID): Flow<PlayerStateEntity?>
+    fun observe(id: Int): Flow<PlayerStateEntity?>
 
     @Query("SELECT * FROM player WHERE id = :id")
-    suspend fun get(id: Int = PlayerStateEntity.SINGLETON_ID): PlayerStateEntity?
+    suspend fun get(id: Int): PlayerStateEntity?
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertIfMissing(entity: PlayerStateEntity)

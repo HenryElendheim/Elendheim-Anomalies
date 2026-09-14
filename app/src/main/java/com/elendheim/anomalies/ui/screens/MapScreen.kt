@@ -171,7 +171,7 @@ fun MapScreen(viewModel: GameViewModel) {
             // Creature sprites sit above the canvas so they can carry the idle motion.
             markers.forEach { marker ->
                 val spawn = marker.spawn ?: return@forEach
-                val def = remember(spawn.creatureId) { viewModel.definitionOf(spawn.creatureId) } ?: return@forEach
+                val def = viewModel.definitionOf(spawn.creatureId) ?: return@forEach
                 val sizeDp = 40.dp
                 val halfPx = with(density) { sizeDp.toPx() } / 2f
                 Box(

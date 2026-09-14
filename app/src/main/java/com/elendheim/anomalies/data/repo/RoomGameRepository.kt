@@ -22,7 +22,7 @@ class RoomGameRepository(
 ) : GameRepository {
 
     override fun observePlayer(): Flow<PlayerStateEntity> =
-        db.player().observe().map { it ?: PlayerStateEntity() }
+        db.player().observe(PlayerStateEntity.SINGLETON_ID).map { it ?: PlayerStateEntity() }
 
     override fun observeOwned(): Flow<List<OwnedCreatureEntity>> = db.ownedCreatures().observeAll()
 
@@ -44,7 +44,7 @@ class RoomGameRepository(
     }
 
     override suspend fun player(): PlayerStateEntity =
-        db.player().get() ?: PlayerStateEntity().also { db.player().insertIfMissing(it) }
+        db.player().get(PlayerStateEntity.SINGLETON_ID) ?: PlayerStateEntity().also { db.player().insertIfMissing(it) }
 
     override suspend fun owned(id: Long): OwnedCreatureEntity? = db.ownedCreatures().byId(id)
 
