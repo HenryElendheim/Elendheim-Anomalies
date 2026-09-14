@@ -1,0 +1,66 @@
+name: Build and release
+
+on:
+  push:
+    branches: [main, testing]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Read the version
+        id: version
+        run: |
+          VERSION=$(grep -oP 'val appVersionName = "\K[^"]+' app/build.gradle.kts)
+          echo "name=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Build the release APK
+        run: ./gradlew --no-daemon assembleRelease
+
+      - name: Collect the APK
+        run: |
+          mkdir -p out
+          cp app/build/outputs/apk/release/Elendheim-Anomalies.apk out/Elendheim-Anomalies.apk
+
+      - name: Upload the build
+        uses: actions/upload-artifact@v4
+        with:
+          name: Elendheim-Anomalies-${{ steps.version.outputs.tag }}
+          path: out/Elendheim-Anomalies.apk
+          if-no-files-found: error
+
+      - name: Publish the release
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ steps.version.outputs.name }}
+        run: |
+          TITLE="Elendheim Anomalies v${VERSION}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" out/Elendheim-Anomalies.apk --clobber
+            gh release edit "$TAG" --title "$TITLE" --notes-file .github/RELEASE_NOTES.md
+          else
+            gh release create "$TAG" out/Elendheim-Anomalies.apk \
+              --title "$TITLE" \
+              --notes-file .github/RELEASE_NOTES.md
+          fi

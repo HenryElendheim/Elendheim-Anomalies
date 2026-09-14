@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A single brushstroke letter E in the suite style, drawn as a vector so the
+     launcher icon stays sharp at every density with no bitmap assets. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#E1F5EE"
+        android:pathData="M38,32 C38,32 70,29.5 72,31 C74,32.5 73,36.5 71,37 C69,37.5 44,38.5 44,38.5 L43.5,50 C43.5,50 63,48.6 64.6,50 C66.2,51.4 65.4,55.2 63.4,55.7 C61.4,56.2 43.2,57 43.2,57 L42.8,69.5 C42.8,69.5 71,67.6 72.8,69.2 C74.6,70.8 73.6,74.8 71.4,75.3 C69.2,75.8 37,77 37,77 C35,77 33.6,75.6 33.7,73.6 L35.2,35 C35.3,33.4 36.4,32.1 38,32 Z" />
+    <path
+        android:fillColor="#0AF5C8"
+        android:pathData="M76,26 m-5,0 a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0" />
+</vector>
