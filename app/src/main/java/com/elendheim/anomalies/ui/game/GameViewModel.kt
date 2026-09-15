@@ -440,6 +440,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     fun setLargeTouchTargets(value: Boolean) = viewModelScope.launch { container.settings.setLargeTouchTargets(value) }
     fun setQuickSpins(value: Boolean) = viewModelScope.launch { container.settings.setQuickSpins(value) }
     fun setQuickCatches(value: Boolean) = viewModelScope.launch { container.settings.setQuickCatches(value) }
+    fun setDetailedMap(value: Boolean) = viewModelScope.launch { container.settings.setDetailedMap(value) }
 
     fun exportTo(uri: Uri) {
         viewModelScope.launch {

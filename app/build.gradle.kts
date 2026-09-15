@@ -8,8 +8,8 @@ plugins {
 
 // The single place the app version lives. Everything else reads it from
 // BuildConfig, which means the settings screen can never drift out of sync.
-val appVersionName = "1.001"
-val appVersionCode = 2
+val appVersionName = "0.003"
+val appVersionCode = 3
 
 android {
     namespace = "com.elendheim.anomalies"
@@ -111,6 +111,7 @@ dependencies {
     implementation(libs.androidx.documentfile)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.play.services.location)
+    implementation(libs.maplibre.android)
 
     testImplementation(libs.junit)
 }

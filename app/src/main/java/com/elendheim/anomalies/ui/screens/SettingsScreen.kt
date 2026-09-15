@@ -167,6 +167,14 @@ fun SettingsScreen(viewModel: GameViewModel, onBack: () -> Unit) {
         SectionLabel("Map")
 
         ToggleRow(
+            title = "Detailed map",
+            description = "Draws real streets and water under the game. Turn it off for a " +
+                "plain drawn map that needs no connection at all.",
+            checked = settings.detailedMap,
+            largeTargets = large,
+            onCheckedChange = { viewModel.setDetailedMap(it) },
+        )
+        ToggleRow(
             title = "Show distances",
             description = "Metres and kilometres beside stops",
             checked = settings.showDistances,

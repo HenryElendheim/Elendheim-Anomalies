@@ -20,6 +20,7 @@ data class AppSettings(
     val largeTouchTargets: Boolean = false,
     val quickSpins: Boolean = false,
     val quickCatches: Boolean = false,
+    val detailedMap: Boolean = true,
 )
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "elendheim_settings")
@@ -36,6 +37,7 @@ class SettingsStore(private val context: Context) {
         val largeTouchTargets = booleanPreferencesKey("large_touch_targets")
         val quickSpins = booleanPreferencesKey("quick_spins")
         val quickCatches = booleanPreferencesKey("quick_catches")
+        val detailedMap = booleanPreferencesKey("detailed_map")
     }
 
     val settings: Flow<AppSettings> = context.dataStore.data.map { prefs ->
@@ -48,6 +50,7 @@ class SettingsStore(private val context: Context) {
             largeTouchTargets = prefs[Keys.largeTouchTargets] ?: false,
             quickSpins = prefs[Keys.quickSpins] ?: false,
             quickCatches = prefs[Keys.quickCatches] ?: false,
+            detailedMap = prefs[Keys.detailedMap] ?: true,
         )
     }
 
@@ -59,6 +62,7 @@ class SettingsStore(private val context: Context) {
     suspend fun setLargeTouchTargets(value: Boolean) = put { it[Keys.largeTouchTargets] = value }
     suspend fun setQuickSpins(value: Boolean) = put { it[Keys.quickSpins] = value }
     suspend fun setQuickCatches(value: Boolean) = put { it[Keys.quickCatches] = value }
+    suspend fun setDetailedMap(value: Boolean) = put { it[Keys.detailedMap] = value }
 
     /** One write path, which means every setter behaves identically. */
     private suspend fun put(block: (androidx.datastore.preferences.core.MutablePreferences) -> Unit) {
