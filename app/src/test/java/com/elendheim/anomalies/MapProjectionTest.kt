@@ -16,8 +16,16 @@ class MapProjectionTest {
     private val lat = 59.9139
     private val lng = 10.7522
 
-    private fun camera(zoom: Float = 17f, bearing: Float = 0f) =
-        MapCamera(centerLat = lat, centerLng = lng, zoom = zoom, bearingDegrees = bearing)
+    private val density = 2.75f
+
+    private fun camera(zoom: Float = 16f, bearing: Float = 0f) =
+        MapCamera(
+            centerLat = lat,
+            centerLng = lng,
+            zoom = zoom,
+            bearingDegrees = bearing,
+            devicePixelRatio = density,
+        )
 
     @Test
     fun `the camera centre lands in the middle of the screen`() {
@@ -56,21 +64,80 @@ class MapProjectionTest {
 
     @Test
     fun `zooming in one step halves the ground each pixel covers`() {
-        val wide = MapProjection.metersPerPixel(lat, 16f)
-        val close = MapProjection.metersPerPixel(lat, 17f)
+        val wide = MapProjection.metersPerPixel(lat, 16f, density)
+        val close = MapProjection.metersPerPixel(lat, 17f, density)
         assertEquals(wide / 2, close, wide * 0.0001)
+    }
+
+    @Test
+    fun `a denser screen packs the same ground into more pixels`() {
+        val plain = MapProjection.metersPerPixel(lat, 16f, 1f)
+        val dense = MapProjection.metersPerPixel(lat, 16f, 3f)
+        // Three times the pixels for the same piece of ground means a third of the
+        // ground behind each one. Getting this wrong is what makes the map slide out
+        // from under the markers.
+        assertEquals(plain / 3, dense, plain * 0.0001)
+    }
+
+    @Test
+    fun `the scale matches the tile renderer's own reckoning`() {
+        // The renderer measures a zoom step against a tile five hundred and twelve
+        // pixels wide, so at zoom zero on a plain screen the whole equator spans that.
+        val atZoomZero = MapProjection.metersPerPixel(0.0, 0f, 1f)
+        assertEquals(40_075_016.686 / 512.0, atZoomZero, 0.001)
+    }
+
+    @Test
+    fun `the opening zoom puts the spawn ring at a workable size`() {
+        val canvas = Size(1080f, 2100f)
+        val zoom = MapProjection.zoomFittingRadius(lat, 80.0, canvas, density)
+        val fitted = camera(zoom = zoom)
+        val ringPixels = MapProjection.metersToPixels(fitted, 80.0)
+        val share = ringPixels / minOf(canvas.width, canvas.height)
+        assertTrue("the ring should take up a useful share, was $share", share in 0.2f..0.45f)
+    }
+
+    @Test
+    fun `dragging moves the ground the same way as the finger`() {
+        val start = camera()
+        val dragged = MapProjection.panned(start, Offset(120f, 0f))
+        val point = MapProjection.toScreen(dragged, start.centerLat, start.centerLng, canvas)
+        // The old centre should now sit a hundred and twenty pixels to the right, which
+        // is the ground having followed the finger rather than run away from it.
+        assertEquals(canvas.width / 2 + 120f, point.x, 1f)
+        assertEquals(canvas.height / 2, point.y, 1f)
+    }
+
+    @Test
+    fun `dragging a turned map still follows the screen rather than north`() {
+        val start = camera(bearing = 90f)
+        val dragged = MapProjection.panned(start, Offset(0f, 90f))
+        val point = MapProjection.toScreen(dragged, start.centerLat, start.centerLng, canvas)
+        assertEquals(canvas.width / 2, point.x, 1f)
+        assertEquals(canvas.height / 2 + 90f, point.y, 1f)
+    }
+
+    @Test
+    fun `a pinch converts into whole zoom steps`() {
+        assertEquals(1f, MapProjection.zoomSteps(2f), 0.0001f)
+        assertEquals(-1f, MapProjection.zoomSteps(0.5f), 0.0001f)
+        assertEquals(0f, MapProjection.zoomSteps(1f), 0.0001f)
     }
 
     @Test
     fun `a real distance takes up more pixels the further you zoom in`() {
         val near = MapProjection.metersToPixels(camera(zoom = 18f), 80.0)
-        val far = MapProjection.metersToPixels(camera(zoom = 15f), 80.0)
+        val far = MapProjection.metersToPixels(camera(zoom = 14f), 80.0)
         assertTrue(near > far)
     }
 
     @Test
     fun `zoom and metres per pixel convert back to each other`() {
-        val zoom = MapProjection.zoomForMetersPerPixel(lat, MapProjection.metersPerPixel(lat, 16.4f))
+        val zoom = MapProjection.zoomForMetersPerPixel(
+            lat,
+            MapProjection.metersPerPixel(lat, 16.4f, density),
+            density,
+        )
         assertEquals(16.4f, zoom, 0.001f)
     }
 

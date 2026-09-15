@@ -12,6 +12,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraPosition
+import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
@@ -50,7 +51,9 @@ fun MapLibreHost(
                     // before giving up on the detailed map altogether.
                     val map = holder.map
                     if (map != null && holder.advanceStyle()) {
-                        runCatching { map.setStyle(Style.Builder().fromUri(holder.styleUrl())) }
+                        runCatching {
+                            map.setStyle(Style.Builder().fromUri(holder.styleUrl())) { holder.push() }
+                        }
                     } else {
                         onUnavailable()
                     }
@@ -66,7 +69,9 @@ fun MapLibreHost(
                             isLogoEnabled = false
                             isCompassEnabled = false
                         }
-                        map.setStyle(Style.Builder().fromUri(holder.styleUrl()))
+                        map.setStyle(Style.Builder().fromUri(holder.styleUrl())) {
+                            holder.push()
+                        }
                         holder.apply(camera)
                     }.onFailure {
                         Log.w(TAG, "the detailed map could not be set up", it)
@@ -144,16 +149,37 @@ private class MapHolder {
 
     fun claimTeardown(): Boolean = tornDown.compareAndSet(false, true)
 
-    /** Pushes the app camera onto the renderer. Moves, never animates, so it tracks
-     *  the finger exactly rather than lagging behind a gesture. */
+    /**
+     * The camera the app wants, remembered so it can be re-applied whenever the renderer
+     * reaches a point where it will actually accept one.
+     */
+    private var pending: MapCamera? = null
+
     fun apply(camera: MapCamera) {
+        pending = camera
+        push()
+    }
+
+    /**
+     * Pushes the remembered camera onto the renderer. This goes through moveCamera
+     * rather than assigning the camera position, because that is the call the renderer
+     * actually acts on, and it moves rather than animates so the map tracks a gesture
+     * exactly instead of lagging a step behind it.
+     */
+    fun push() {
         val target = map ?: return
+        val camera = pending ?: return
         runCatching {
-            target.cameraPosition = CameraPosition.Builder()
-                .target(LatLng(camera.centerLat, camera.centerLng))
-                .zoom(camera.zoom.toDouble())
-                .bearing(camera.bearingDegrees.toDouble())
-                .build()
+            target.moveCamera(
+                CameraUpdateFactory.newCameraPosition(
+                    CameraPosition.Builder()
+                        .target(LatLng(camera.centerLat, camera.centerLng))
+                        .zoom(camera.zoom.toDouble())
+                        .bearing(camera.bearingDegrees.toDouble())
+                        .tilt(0.0)
+                        .build()
+                )
+            )
         }.onFailure { Log.w(TAG, "could not move the map camera", it) }
     }
 }

@@ -47,7 +47,12 @@ stopped being fun.
 
 ## The map
 
-One `MapCamera` drives everything. The tile renderer's own gestures are switched off and
+One `MapCamera` drives everything. Its scale has to agree with the tile renderer exactly,
+and two things decide that: the renderer measures a zoom step against a 512 pixel tile
+rather than the 256 older slippy maps used, and it counts in density independent pixels
+while the overlay draws in real ones. Both corrections live in `MapProjection.metersPerPixel`
+and nowhere else. Get either wrong and the ground slides out from under the markers.
+ The tile renderer's own gestures are switched off and
 its camera is pushed from ours, so a single gesture handler controls the map and every
 marker is still positioned by the app's own projection in `MapProjection`. That means the
 renderer is only ever a backdrop: if it fails to start, or a style will not load, the same

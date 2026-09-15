@@ -33,6 +33,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -108,17 +115,33 @@ fun MapScreen(viewModel: GameViewModel) {
 
     // The camera rides along with the player until the map is dragged, and then it stays
     // where it was put until the recentre button is pressed.
-    LaunchedEffect(fix?.lat, fix?.lng) {
+    LaunchedEffect(fix?.lat, fix?.lng, canvasSize, state.effects.spawnRadiusMeters) {
         val position = fix ?: return@LaunchedEffect
+        if (canvasSize == Size.Zero) return@LaunchedEffect
         val current = camera
         camera = when {
-            current == null -> MapCamera(position.lat, position.lng)
+            current == null -> MapCamera(
+                centerLat = position.lat,
+                centerLng = position.lng,
+                zoom = MapProjection.zoomFittingRadius(
+                    lat = position.lat,
+                    radiusMeters = state.effects.spawnRadiusMeters,
+                    canvas = canvasSize,
+                    devicePixelRatio = density.density,
+                ),
+                devicePixelRatio = density.density,
+            )
             current.followPlayer -> current.copy(centerLat = position.lat, centerLng = position.lng)
             else -> current
         }
     }
 
-    Box(Modifier.fillMaxSize().background(colors.background)) {
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(colors.background)
+            .onSizeChanged { canvasSize = Size(it.width.toFloat(), it.height.toFloat()) }
+    ) {
         val liveCamera = camera
         if (fix == null || liveCamera == null) {
             NoPositionState(
@@ -166,31 +189,18 @@ fun MapScreen(viewModel: GameViewModel) {
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
-                .onSizeChanged { canvasSize = Size(it.width.toFloat(), it.height.toFloat()) }
                 .pointerInput(liveCamera, canvasSize, placing) {
                     // Pinch, twist and drag all arrive together, so one handler keeps
                     // the three of them consistent with each other.
-                    detectTransformGestures { _, pan, zoomChange, rotationChange ->
+                    detectTransformGestures { _, pan, pinch, rotationChange ->
                         val current = camera ?: return@detectTransformGestures
-                        val scale = current.metersPerPixel
-                        val bearing = Math.toRadians(current.bearingDegrees.toDouble())
-                        // A drag moves the world the opposite way to the finger, and has
-                        // to be un-rotated first so dragging follows the screen, not north.
-                        val screenEast = -pan.x * scale
-                        val screenNorth = pan.y * scale
-                        val east = screenEast * Math.cos(bearing) + screenNorth * Math.sin(bearing)
-                        val north = -screenEast * Math.sin(bearing) + screenNorth * Math.cos(bearing)
-                        val (lat, lng) = Geo.offset(current.centerLat, current.centerLng, north, east)
-
                         val moved = pan.getDistance() > PAN_BREAKS_FOLLOW_PX
-                        camera = current
-                            .copy(
-                                centerLat = lat,
-                                centerLng = lng,
-                                followPlayer = current.followPlayer && !moved,
-                            )
-                            .withZoom(current.zoom + zoomToSteps(zoomChange))
-                            .withBearing(current.bearingDegrees + rotationChange)
+                        camera = MapProjection.panned(current, pan)
+                            .copy(followPlayer = current.followPlayer && !moved)
+                            .withZoom(current.zoom + MapProjection.zoomSteps(pinch))
+                            // Twisting the fingers clockwise should turn the map clockwise,
+                            // and the map turns clockwise as the bearing goes down.
+                            .withBearing(current.bearingDegrees - rotationChange)
                     }
                 }
                 .pointerInput(markers, placing, liveCamera, canvasSize) {
@@ -318,12 +328,6 @@ fun MapScreen(viewModel: GameViewModel) {
     }
 }
 
-/** A pinch reports a ratio, and zoom steps are powers of two, so it converts across. */
-private fun zoomToSteps(zoomChange: Float): Float {
-    if (zoomChange <= 0f) return 0f
-    return (Math.log(zoomChange.toDouble()) / Math.log(2.0)).toFloat()
-}
-
 /** The chip showing what is out and how close it is to its next form. */
 @Composable
 private fun CompanionChip(viewModel: GameViewModel, modifier: Modifier = Modifier) {
@@ -379,18 +383,18 @@ private fun MapControls(
             Text(biome, style = MaterialTheme.typography.labelMedium, color = theme.textMid)
             Text(band, style = MaterialTheme.typography.labelSmall, color = theme.textDim)
             Text(
-                "${MapProjection.metersPerPixel(camera.centerLat, camera.zoom).let { "%.1f".format(it) }} m per pixel",
+                "zoom ${"%.1f".format(camera.zoom)}, ${"%.2f".format(camera.metersPerPixel)} m per pixel",
                 style = MaterialTheme.typography.labelSmall,
                 color = theme.borderDim,
             )
         }
         Spacer(Modifier.height(Sizes.gap))
         Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            if (camera.bearingDegrees != 0f) {
+                Compass(bearingDegrees = camera.bearingDegrees, onClick = onNorthUp)
+            }
             Pill("zoom in", selected = false, onClick = { onZoom(ZOOM_BUTTON_STEP) })
             Pill("zoom out", selected = false, onClick = { onZoom(-ZOOM_BUTTON_STEP) })
-            if (camera.bearingDegrees != 0f) {
-                Pill("north up", selected = true, onClick = onNorthUp)
-            }
             if (!camera.followPlayer) {
                 Pill("recentre", selected = true, onClick = onRecentre)
             }
@@ -404,6 +408,51 @@ private fun MapControls(
                     modifier = Modifier.width(120.dp),
                 )
             }
+        }
+    }
+}
+
+/**
+ * A needle showing which way north has gone once the map has been turned, and a way back.
+ * It only appears while the map is actually turned, so a north up map stays uncluttered.
+ */
+@Composable
+private fun Compass(bearingDegrees: Float, onClick: () -> Unit) {
+    val colors = theme
+    Canvas(
+        Modifier
+            .size(40.dp)
+            .clip(CircleShape)
+            .background(colors.card)
+            .border(Sizes.hairline, colors.border, CircleShape)
+            .clickable(onClick = onClick)
+            .semantics {
+                contentDescription = "Map turned ${bearingDegrees.roundToInt()} degrees, tap for north up"
+            }
+    ) {
+        val centre = Offset(size.width / 2f, size.height / 2f)
+        val reach = size.minDimension * 0.30f
+        // The needle points where north actually is, so turning the map turns the needle
+        // the opposite way to the ground.
+        rotate(-bearingDegrees, centre) {
+            drawPath(
+                path = Path().apply {
+                    moveTo(centre.x, centre.y - reach)
+                    lineTo(centre.x - reach * 0.5f, centre.y + reach * 0.62f)
+                    lineTo(centre.x, centre.y + reach * 0.28f)
+                    close()
+                },
+                color = colors.accent,
+            )
+            drawPath(
+                path = Path().apply {
+                    moveTo(centre.x, centre.y - reach)
+                    lineTo(centre.x + reach * 0.5f, centre.y + reach * 0.62f)
+                    lineTo(centre.x, centre.y + reach * 0.28f)
+                    close()
+                },
+                color = colors.textDim,
+            )
         }
     }
 }
