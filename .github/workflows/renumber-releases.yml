@@ -13,26 +13,30 @@ jobs:
   renumber:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out
-        uses: actions/checkout@v4
-
       - name: Move each release onto its new tag
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
           move() {
             old="$1"; new="$2"
-            if ! gh release view "$old" >/dev/null 2>&1; then
+            if ! gh release view "$old" --repo "$REPO" >/dev/null 2>&1; then
               echo "no release on $old, nothing to move"
               return 0
             fi
-            gh release edit "$old" --tag "$new" --title "Elendheim Anomalies $new"
-            echo "moved $old to $new"
-            # The old tag is only removed once the release is safely on the new one,
-            # which means a failure half way through never loses the release.
-            gh api -X DELETE "repos/${GITHUB_REPOSITORY}/git/refs/tags/$old" || true
+            # The new tag is created at exactly the commit the old one pointed at, so
+            # the release keeps pointing at the code it was actually built from.
+            sha=$(gh api "repos/$REPO/git/ref/tags/$old" --jq '.object.sha')
+            gh api -X POST "repos/$REPO/git/refs" \
+              -f ref="refs/tags/$new" -f sha="$sha" >/dev/null 2>&1 || true
+            gh release edit "$old" --repo "$REPO" --tag "$new" --title "Elendheim Anomalies $new"
+            echo "moved $old to $new at $sha"
+            # The old tag goes only once the release is safely on the new one, so a
+            # failure half way through can never lose the release.
+            gh api -X DELETE "repos/$REPO/git/refs/tags/$old" >/dev/null 2>&1 || true
           }
           move v1.0 v0.001
           move v1.001 v0.002
-          gh release list
+          echo "--- releases now ---"
+          gh release list --repo "$REPO"
