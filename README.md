@@ -9,8 +9,12 @@ whole save can be written out to a file you choose.
 
 ## What is in it
 
-- **Map** centred on you, showing the radius anomalies appear in, your stops and whatever
-  is standing around right now.
+- **Map** of real streets and water from OpenStreetMap, centred on you, showing the radius
+  anomalies appear in, your stops and whatever is standing around right now. Pinch to
+  zoom, twist to turn, drag to look around. The spawn ring and every stop's catchment are
+  real distances, so they scale with the zoom exactly as the ground does.
+- **Stops further than 500 m are left off the map** until you are closer, so the screen
+  only ever shows what you could actually walk to.
 - **Stops** you place by hand: pick the plus button, tap the map where it goes, nudge it
   until it sits right, then confirm. Each one hands over capsules on a cooldown you set
   yourself. A stop that is ready to spin is a large square, one still counting down is a
@@ -40,6 +44,18 @@ reduce motion, large touch targets, distance labels and vibration. Reduce motion
 holds the catch ring steady, so the throw is scored on the flick alone. Quick spins and
 quick catches skip the two long animations on their own, for when the flourish has
 stopped being fun.
+
+## The map
+
+One `MapCamera` drives everything. The tile renderer's own gestures are switched off and
+its camera is pushed from ours, so a single gesture handler controls the map and every
+marker is still positioned by the app's own projection in `MapProjection`. That means the
+renderer is only ever a backdrop: if it fails to start, or a style will not load, the same
+camera drives a plain drawn map instead and the game plays identically. Turning off
+**Detailed map** in settings does the same thing on purpose.
+
+Tiles come from OpenFreeMap, which needs no key. Map data is OpenStreetMap and is credited
+on the map itself.
 
 ## Building it
 

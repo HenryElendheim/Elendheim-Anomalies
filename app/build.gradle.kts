@@ -22,6 +22,14 @@ android {
         versionCode = appVersionCode
         versionName = appVersionName
         vectorDrawables.useSupportLibrary = true
+
+        ndk {
+            // The map renderer ships native code for four processor families, and three
+            // quarters of that is weight no phone will ever run. Keeping the two ARM
+            // builds covers every real device and takes roughly thirty megabytes off
+            // the download.
+            abiFilters += setOf("arm64-v8a", "armeabi-v7a")
+        }
     }
 
     signingConfigs {
