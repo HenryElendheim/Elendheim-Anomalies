@@ -1,0 +1,38 @@
+name: Renumber releases
+
+# A one off maintenance job. The first two releases went out numbered as though the
+# app were finished, which it is not, so they are moved onto the pre alpha numbering
+# and the old tags are cleared away. Run it by hand, never on a push.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  renumber:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Move each release onto its new tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          move() {
+            old="$1"; new="$2"
+            if ! gh release view "$old" >/dev/null 2>&1; then
+              echo "no release on $old, nothing to move"
+              return 0
+            fi
+            gh release edit "$old" --tag "$new" --title "Elendheim Anomalies $new"
+            echo "moved $old to $new"
+            # The old tag is only removed once the release is safely on the new one,
+            # which means a failure half way through never loses the release.
+            gh api -X DELETE "repos/${GITHUB_REPOSITORY}/git/refs/tags/$old" || true
+          }
+          move v1.0 v0.001
+          move v1.001 v0.002
+          gh release list
